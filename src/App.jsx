@@ -50,13 +50,27 @@ import {
   addDoc,
   deleteDoc,
   onSnapshot,
+} from 'firebase/firestore';
 
+// =========================================================================
+// API KEY CONFIGURATION (Maintains automatic injection compatibility)
+// =========================================================================
+const apiKey = '';
+
+// Dynamic fallback to guarantee execution in all sandbox & external environments
+const activeApiKey = apiKey || 'AIzaSyD6jccXOqicJgLssqAmUT0z5JSIj0Ggu_k';
+
+// =========================================================================
+// 1. YOUR LIVE COPIED FIREBASE CONFIGURATION
+// =========================================================================
+const firebaseConfig = {
+  apiKey: 'AIzaSyCk4Fb_C-l6LLBEStTdJguC34Z7bW_p3us',
   authDomain: 'aurateaser-brand-studio.firebaseapp.com',
   projectId: 'aurateaser-brand-studio',
   storageBucket: 'aurateaser-brand-studio.firebasestorage.app',
   messagingSenderId: '771946262378',
   appId: '1:771946262378:web:cfd63201b2c1c6d4e57f13',
-};const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+};
 
 const STRIPE_LINK_MONTHLY =
   'https://buy.stripe.com/test_3cI9AU8OteHf8MZd272kw01';
