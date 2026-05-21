@@ -52,12 +52,7 @@ import {
   onSnapshot,
 } from 'firebase/firestore';
 
-// =========================================================================
-// API KEY CONFIGURATION (Safe environmental loading to prevent leaks)
-// =========================================================================
-// Using a dynamic evaluator to completely bypass rigid static compiler
-// target limitations (e.g. ES2015 constraints on import.meta) while maintaining
-// real runtime compatibility for modern bundlers like Vite.
+import.meta.env.VITE_GEMINI_API_KEY;
 const getSecureApiKey = () => {
   try {
     const metaEvaluator = Function('return import.meta')();
