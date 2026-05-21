@@ -52,30 +52,14 @@ import {
   onSnapshot,
 } from 'firebase/firestore';
 
+const apiKey = 
 import.meta.env.VITE_GEMINI_API_KEY;
-const getSecureApiKey = () => {
-  try {
-    const metaEvaluator = Function('return import.meta')();
-    if (metaEvaluator && metaEvaluator.env && metaEvaluator.env.VITE_GEMINI_API_KEY) {
-      return metaEvaluator.env.VITE_GEMINI_API_KEY;
-    }
-  } catch (e) {
-    try {
-      if (typeof process !== 'undefined' && process.env && process.env.VITE_GEMINI_API_KEY) {
-        return process.env.VITE_GEMINI_API_KEY;
-      }
-    } catch (err) {}
-  }
-  return '';
-};
-
-const apiKey = getSecureApiKey();
 
 // =========================================================================
 // 1. YOUR LIVE COPIED FIREBASE CONFIGURATION
 // =========================================================================
 const firebaseConfig = {
-  apiKey: 'AIzaSyCk4Fb_C-l6LLBEStTdJguC34Z7bW_p3us',
+ 
   authDomain: 'aurateaser-brand-studio.firebaseapp.com',
   projectId: 'aurateaser-brand-studio',
   storageBucket: 'aurateaser-brand-studio.firebasestorage.app',
