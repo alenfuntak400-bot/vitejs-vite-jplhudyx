@@ -58,7 +58,7 @@ import {
 const apiKey = '';
 
 // Dynamic fallback to guarantee execution in all sandbox & external environments
-const activeApiKey = apiKey || 'AIzaSyD6jccXOqicJgLssqAmUT0z5JSIj0Ggu_k';
+const activeApiKey = apiKey || VITE_GEMINI_API_KEY
 
 // =========================================================================
 // 1. YOUR LIVE COPIED FIREBASE CONFIGURATION
