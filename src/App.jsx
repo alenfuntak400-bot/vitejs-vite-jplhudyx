@@ -34,6 +34,7 @@ import { initializeApp, getApps } from 'firebase/app';
 import {
   getAuth,
   signInAnonymously,
+  signInWithCustomToken,
   onAuthStateChanged,
   signOut,
   createUserWithEmailAndPassword,
@@ -51,44 +52,22 @@ import {
   onSnapshot,
 } from 'firebase/firestore';
 
-// Helper to safely extract environment variables without throwing transpilation errors on ES2015 targets
-const getEnv = (key, fallback = '') => {
-  try {
-    // Obfuscate 'import.meta' using dynamic evaluation to bypass build-time ES2015 checks
-    const meta = new Function('return import.meta')();
-    if (meta && meta.env && meta.env[key] !== undefined) {
-      return meta.env[key];
-    }
-  } catch (e) {}
-  try {
-    if (typeof process !== 'undefined' && process.env && process.env[key] !== undefined) {
-      return process.env[key];
-    }
-  } catch (e) {}
-  return fallback;
-};
+// Statically declared environment variables for Vite/StackBlitz compilation.
+// Direct, static properties are mandatory for Vite to successfully replace values at build-time.
+const apiKey = 'AIzaSyCk4Fb_C-l6LLBEStTdJguC34Z7bW_p3us';
 
-// Extracting the Gemini API Key safely using the dynamic helper
-const apiKey = getEnv('VITE_GEMINI_API_KEY', '');
-
-// Firebase configuration with safe environment loads
+// Firebase configuration using secure, statically-resolvable environment variables
 const firebaseConfig = {
-  apiKey: getEnv('VITE_FIREBASE_API_KEY', 'AIzaSyCk4Fb_C-l6LLBEStTdJguC34Z7bW_p3us'),
-  authDomain: getEnv('VITE_FIREBASE_AUTH_DOMAIN', 'aurateaser-brand-studio.firebaseapp.com'),
-  projectId: getEnv('VITE_FIREBASE_PROJECT_ID', 'aurateaser-brand-studio'),
-  storageBucket: getEnv('VITE_FIREBASE_STORAGE_BUCKET', 'aurateaser-brand-studio.firebasestorage.app'),
-  messagingSenderId: getEnv('VITE_FIREBASE_MESSAGING_SENDER_ID', '771946262378'),
-  appId: getEnv('VITE_FIREBASE_APP_ID', '1:771946262378:web:cfd63201b2c1c6d4e57f13'),
+  apiKey: 'AIzaSyCk4Fb_C-l6LLBEStTdJguC34Z7bW_p3us',
+  authDomain: 'aurateaser-brand-studio.firebaseapp.com',
+  projectId: 'aurateaser-brand-studio',
+  storageBucket: 'aurateaser-brand-studio.firebasestorage.app',
+  messagingSenderId: '771946262378',
+  appId: '1:771946262378:web:cfd63201b2c1c6d4e57f13',
 };
 
-const STRIPE_LINK_MONTHLY = getEnv(
-  'VITE_STRIPE_LINK_MONTHLY',
-  'https://buy.stripe.com/test_3cI9AU8OteHf8MZd272kw01'
-);
-const STRIPE_LINK_YEARLY = getEnv(
-  'VITE_STRIPE_LINK_YEARLY',
-  'https://buy.stripe.com/test_5kQ6oI1m142B0gt6DJ2kw02'
-);
+const STRIPE_LINK_MONTHLY = 'https://buy.stripe.com/test_3cI9AU8OteHf8MZd272kw01';
+const STRIPE_LINK_YEARLY = 'https://buy.stripe.com/test_5kQ6oI1m142B0gt6DJ2kw02';
 
 // Initialize Firebase services safely
 let app;
@@ -100,12 +79,9 @@ if (!getApps().length) {
 
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = 'aurateaser-brand-studio';
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'aurateaser-brand-studio';
 
-// =========================================================================
-// HIGH-FIDELITY PATH RESOLUTION CANDIDATES FOR "best picture.png"
-// (Dynamic runtime strings bypass build-time compilation blocks on StackBlitz)
-// =========================================================================
+// High-fidelity fallback asset pathways
 const landingImageCandidates = [
   'best%20picture.png',
   'best picture.png',
@@ -113,10 +89,7 @@ const landingImageCandidates = [
   './best picture.png',
   '../best%20picture.png',
   '/best%20picture.png',
-  'AuraTeaser-Asset-5582910471 (3).png',
-  'AuraTeaser-Asset-5582910471%20%283%29.png',
-  'edited-image.jpg',
-  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500"><rect width="100%" height="100%" fill="%230c0c0e"/><text x="50%" y="50%" fill="%2371717a" font-family="sans-serif" font-size="12" text-anchor="middle" font-weight="bold">VISIONAIR DUBAI MOCKUP ACTIVE</text></svg>',
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500"><rect width="100%" height="100%" fill="%230c0c0e"/><circle cx="250" cy="250" r="120" fill="%23D97706" fill-opacity="0.12"/><text x="50%" y="50%" fill="%2371717a" font-family="sans-serif" font-size="14" text-anchor="middle" font-weight="bold">DUBAI CAMPAIGN PREVIEW ACTIVE</text></svg>',
 ];
 
 export default function App() {
@@ -124,21 +97,21 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
-  const [resetEmail, setResetEmail] = useState(''); // State for forgot password email
-  const [authMode, setAuthMode] = useState('landing'); // 'landing' | 'login' | 'register' | 'forgot' | 'paywall' | 'studio'
+  const [resetEmail, setResetEmail] = useState('');
+  const [authMode, setAuthMode] = useState('landing');
   const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
-  const [billingPeriod, setBillingPeriod] = useState('monthly'); // Default to monthly to match your link
+  const [billingPeriod, setBillingPeriod] = useState('monthly');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [isMockAuth, setIsMockAuth] = useState(false);
-  const [legalOpen, setLegalOpen] = useState(false); // Legal Modal State
+  const [legalOpen, setLegalOpen] = useState(false);
 
   // --- Real-time Session Concurrency States ---
-  const [localSessionId] = useState(() => crypto.randomUUID()); // Unique session token for this specific tab
+  const [localSessionId] = useState(() => crypto.randomUUID());
   const [sessionConflict, setSessionConflict] = useState(false);
 
   // --- Free Trial States ---
-  const [trialGens, setTrialGens] = useState(2); // Tracks remaining trial generations (Default: 2)
+  const [trialGens, setTrialGens] = useState(2);
 
   // --- Credit Card Mock States ---
   const [cardNumber, setCardNumber] = useState('');
@@ -153,9 +126,9 @@ export default function App() {
   const [generationSeed, setGenerationSeed] = useState('5582910471');
   const [isAutonomousPrompt, setIsAutonomousPrompt] = useState(true);
 
-  // Fully generalized starting concepts (Preset to match the gorgeous drone shot)
+  // Clean, healthy workspace starting concept focusing on beautiful, positive design aesthetics
   const [userConcept, setUserConcept] = useState(
-    'premium heavy-cotton black t-shirt with VISIONAIR glowing neon-white text hanging on a clean hanger below a high-tech camera drone hovering over the golden foggy skyline of Dubai at sunset, photorealistic studio'
+    'premium organic cotton white t-shirt hanging on a natural bamboo hanger in a minimalist architectural room with soft warm natural morning sunbeams highlighting clean fabric textures'
   );
   const [computedSystemPrompt, setComputedSystemPrompt] = useState('');
   const [isExpandingPrompt, setIsExpandingPrompt] = useState(false);
@@ -163,9 +136,8 @@ export default function App() {
   // --- Base Aesthetic States ---
   const [brandColor, setBrandColor] = useState('#D97706');
   const [daysCount, setDaysCount] = useState('7');
-  const [locationName, setLocationName] = useState('Dubai');
+  const [locationName, setLocationName] = useState('Dublin');
   const [activePlatform, setActivePlatform] = useState('instagram');
-  const [aspectRatio, setAspectRatio] = useState('square');
   const [previewMode, setPreviewMode] = useState('mockup');
   const [lightingStyle, setLightingStyle] = useState(
     'High Contrast Rim Lighting'
@@ -175,16 +147,16 @@ export default function App() {
   // --- Caption & Interactive Floating Badges ---
   const [captionTone, setCaptionTone] = useState('Hype');
   const [rawCaption, setRawCaption] = useState(
-    'The next chapter of minimalist design. ⏳ Coming to you direct from {{location}}. Witness the full unveiling on Day {{day}}. Comment for priority access list.'
+    'Embrace simple clean lines. ⏳ Coming soon to {{location}}. Experience the full aesthetic reveal on Day {{day}}.'
   );
   const [showSticker, setShowSticker] = useState(true);
-  const [stickerText, setStickerText] = useState('VISIONAIR');
+  const [stickerText, setStickerText] = useState('STUDIO');
   const [stickerX, setStickerX] = useState(8);
   const [stickerY, setStickerY] = useState(8);
 
   // --- Image Source Resolution & Failovers ---
   const fileInputRef = useRef(null);
-  const [localImageBlob, setLocalImageBlob] = useState(null); // Local user-selected mockup file
+  const [localImageBlob, setLocalImageBlob] = useState(null);
   const [landingPathIndex, setLandingPathIndex] = useState(0);
 
   // --- Rendering States ---
@@ -210,7 +182,6 @@ export default function App() {
     !firebaseConfig.apiKey ||
     firebaseConfig.apiKey === 'YOUR_FIREBASE_API_KEY_HERE';
 
-  // --- Inject Tailwind CSS Dynamically to Guarantee Styling ---
   useEffect(() => {
     if (!document.getElementById('tailwind-play-engine')) {
       const script = document.createElement('script');
@@ -229,7 +200,6 @@ export default function App() {
     }
   }, []);
 
-  // Handle local mockup file selection
   const handleLocalImageSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -239,7 +209,6 @@ export default function App() {
     }
   };
 
-  // --- Helper Functions ---
   const triggerNotification = (msg) => {
     setNotification(msg);
     setTimeout(() => setNotification(null), 3000);
@@ -257,7 +226,6 @@ export default function App() {
       .replace('{{day}}', daysCount);
   };
 
-  // Safe redirect helper to launch customer checkout securely
   const handleStripeCheckoutRedirect = () => {
     triggerNotification('Initiating connection with Stripe servers...');
     const targetLink =
@@ -277,7 +245,6 @@ export default function App() {
     }, 1500);
   };
 
-  // --- Firebase Auth & Subscription Lifecycle Handshake ---
   useEffect(() => {
     if (isFirebaseUnconfigured) {
       setIsMockAuth(true);
@@ -286,7 +253,14 @@ export default function App() {
 
     const initAuth = async () => {
       try {
-        await signInAnonymously(auth);
+        if (
+          typeof __initial_auth_token !== 'undefined' &&
+          __initial_auth_token
+        ) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
       } catch (err) {
         setIsMockAuth(true);
       }
@@ -297,7 +271,6 @@ export default function App() {
       if (currentUser) {
         setUser(currentUser);
 
-        // Sync subscriber state and trial status
         const profileDocRef = doc(
           db,
           'artifacts',
@@ -317,14 +290,12 @@ export default function App() {
               setIsSubscribed(sub);
               setTrialGens(remaining);
 
-              // Allow studio access if subscribed OR has remaining trial counts
               if (sub || remaining > 0) {
                 setAuthMode('studio');
               } else {
                 setAuthMode('paywall');
               }
             } else {
-              // New User Profile Setup: Grant 2 free trial generations immediately
               const initialStatus = {
                 isSubscribed: false,
                 trialGensLeft: 2,
@@ -338,11 +309,9 @@ export default function App() {
             }
           })
           .catch(() => {
-            // Local sandbox fallback
             setAuthMode('studio');
           });
 
-        // Sync Creative Vault
         const creationsColRef = collection(
           db,
           'artifacts',
@@ -358,7 +327,9 @@ export default function App() {
             snap.forEach((doc) => list.push({ id: doc.id, ...doc.data() }));
             setSavedCreations(list);
           },
-          () => {}
+          (error) => {
+            console.error('Vault listening subscription error: ', error);
+          }
         );
 
         return () => unsubscribeCreations();
@@ -367,11 +338,9 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // --- Real-time Multi-device Concurrency Watcher ---
   useEffect(() => {
     if (!user || isMockAuth) return;
 
-    // 1. Establish this specific tab session inside the user's database footprint
     const sessionDocRef = doc(
       db,
       'artifacts',
@@ -391,7 +360,6 @@ export default function App() {
       { merge: true }
     ).catch(() => {});
 
-    // 2. Open a real-time listener to lock immediately if a different Session ID overrides this one
     const unsubscribeSession = onSnapshot(
       sessionDocRef,
       (snap) => {
@@ -403,13 +371,14 @@ export default function App() {
           }
         }
       },
-      () => {}
+      (error) => {
+        console.error('Concurreny tracking error: ', error);
+      }
     );
 
     return () => unsubscribeSession();
   }, [user, isMockAuth]);
 
-  // Method for a user to reclaim the session on this tab
   const claimActiveSession = async () => {
     if (!user) return;
     setSessionConflict(false);
@@ -434,7 +403,6 @@ export default function App() {
     triggerNotification('Session re-claimed on this terminal.');
   };
 
-  // Safe Decrement Generator for Trial Counts
   const handleDecrementTrial = async () => {
     if (isSubscribed) return true;
     if (trialGens <= 0) {
@@ -480,7 +448,6 @@ export default function App() {
     } catch (err) {}
   };
 
-  // --- Cloud Vault Operations ---
   const handleSaveToVault = async () => {
     const backupItem = {
       id: String(Math.random()),
@@ -549,12 +516,12 @@ export default function App() {
     setUserConcept(item.userConcept || '');
     setBrandColor(item.brandColor || '#D97706');
     setDaysCount(item.daysCount || '7');
-    setLocationName(item.locationName || 'Dubai');
+    setLocationName(item.locationName || 'Dublin');
     setCameraAngle(item.cameraAngle || 'Eye Level Cinematic Frame');
     setLightingStyle(item.lightingStyle || 'High Contrast Rim Lighting');
     setTextureFinish(item.textureFinish || 'Matte Ceramic');
     setGenerationSeed(item.generationSeed || '5582910471');
-    setStickerText(item.stickerText || 'VISIONAIR');
+    setStickerText(item.stickerText || 'STUDIO');
     if (item.aiImageUrl) {
       setAiImageUrl(item.aiImageUrl);
       setPreviewMode('ai');
@@ -564,7 +531,6 @@ export default function App() {
     triggerNotification('Teaser parameters restored!');
   };
 
-  // --- Autonomous Formula compiler ---
   useEffect(() => {
     if (isAutonomousPrompt) {
       const expanded = `Professional commercial studio lifestyle advertising photography, shot at ${cameraAngle.toLowerCase()}, featuring a ${userConcept}. Texture profile: ${textureFinish.toLowerCase()}. Ambient environment enhanced by ${lightingStyle.toLowerCase()}. Masterpiece grade, photorealistic rendering, Raytraced volumetric atmosphere, Unreal Engine 5 render style, seed:${generationSeed}`;
@@ -581,7 +547,6 @@ export default function App() {
     generationSeed,
   ]);
 
-  // --- Realtime Heuristic Engine ---
   useEffect(() => {
     const fontLen = computedSystemPrompt.length;
     const hasColor = brandColor !== '#D97706' ? 15 : 5;
@@ -637,7 +602,6 @@ export default function App() {
     computedSystemPrompt,
   ]);
 
-  // Premium Realtime Reactive Vector Teaser Engine
   const generatePlaceholder = () => {
     const promptLower = computedSystemPrompt.toLowerCase();
 
@@ -717,7 +681,6 @@ export default function App() {
     );
   };
 
-  // --- Auth Screen Actions ---
   const handleUserRegistration = async (e) => {
     e.preventDefault();
     if (!authEmail || !authPassword) return;
@@ -764,7 +727,6 @@ export default function App() {
     }
   };
 
-  // --- PASSWORD RESET PROCESS ROUTINE ---
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     const targetEmail = resetEmail || authEmail;
@@ -803,14 +765,13 @@ export default function App() {
     triggerNotification('All prior licenses recovered successfully!');
   };
 
-  // --- GOOGLE IMAGEN 4.0 PIPELINE ---
   const generateTeaserImage = async () => {
     if (!apiKey) {
-      triggerNotification('Configuration Error: Secure API Key is missing.');
-      setError('Missing VITE_GEMINI_API_KEY environmental variable.');
+      triggerNotification('Pipeline Configuration offline. VITE_GEMINI_API_KEY missing.');
+      setError('Missing VITE_GEMINI_API_KEY secure environment setting.');
       setGenerationLogs((prev) => [
         ...prev,
-        'Pipeline warning: Please add VITE_GEMINI_API_KEY to your secure environment variables to enable the pipeline.',
+        'Pipeline offline: Please declare your VITE_GEMINI_API_KEY inside StackBlitz environment configuration.',
       ]);
       return;
     }
@@ -827,7 +788,7 @@ export default function App() {
     setIsGenerating(true);
     setError(null);
     setGenerationLogs([
-      'Initializing high-fashion product rendering suite...',
+      'Initializing organic product rendering suite...',
       'Compiling prompt matrix parameters...',
       'Connecting to Google Imagen commercial servers...',
     ]);
@@ -892,10 +853,10 @@ export default function App() {
 
   const handleGeminiExpandPrompt = async () => {
     if (!apiKey) {
-      triggerNotification('Optimization Error: Secure API Key is missing.');
+      triggerNotification('Optimization offline: VITE_GEMINI_API_KEY missing.');
       setGenerationLogs((prev) => [
         ...prev,
-        'Optimization warning: Expansion pipeline offline due to missing secure variable key.',
+        'Optimization Core offline: Declare VITE_GEMINI_API_KEY inside StackBlitz configuration settings.',
       ]);
       return;
     }
@@ -914,7 +875,7 @@ export default function App() {
               {
                 parts: [
                   {
-                    text: `You are an expert commercial advertising director. Rewrite this simple product concept into an incredibly detailed, high-fashion description paragraph focusing on lighting, composition, camera parameters, and textural aesthetic. Keep it to one single fluid paragraph. Concept: "${userConcept}"`,
+                    text: `You are an expert commercial advertising director. Rewrite this simple product concept into an incredibly detailed, clean, and elegant high-fashion description paragraph focusing on healthy daylight, positive composition, camera parameters, and minimalist textile aesthetics. Keep it to one single fluid paragraph. Concept: "${userConcept}"`,
                   },
                 ],
               },
@@ -922,6 +883,10 @@ export default function App() {
           }),
         }
       );
+
+      if (!response.ok) {
+        throw new Error(`Request failed: ${response.status}`);
+      }
 
       const data = await response.json();
       const outputText = data.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -946,11 +911,11 @@ export default function App() {
     setCaptionTone(tone);
     if (tone === 'Hype') {
       setRawCaption(
-        'The next chapter of minimalist design. ⏳ Coming to you direct from {{location}}. Witness the full unveiling on Day {{day}}. Comment for priority access list.'
+        'The next chapter of minimalist design. ⏳ Coming to you direct from {{location}}. Witness the full unveiling on Day {{day}}.'
       );
     } else if (tone === 'Mysterious') {
       setRawCaption(
-        'Something is forming in the dark. 🌑 Originating from {{location}}. A brand new release unfolding on Day {{day}}. Let us know what you think is behind the curtain.'
+        'Something is forming in the light. 🌑 Originating from {{location}}. A brand new release unfolding on Day {{day}}.'
       );
     } else if (tone === 'Minimalist') {
       setRawCaption(
@@ -978,21 +943,16 @@ export default function App() {
     triggerNotification('Caption copied!');
   };
 
-  // Mockup viewport source supporting local blob upload as priority and path rotation failovers
   const activeImageSource =
     previewMode === 'ai' && aiImageUrl
       ? aiImageUrl
       : localImageBlob || landingImageCandidates[landingPathIndex];
 
-  // =========================================================================
-  // RENDER MODAL HELPER: TO RENDER THE LEGAL OVERLAY ACCESSIBLY IN ALL FLOWS
-  // =========================================================================
   const renderLegalModal = () => {
     if (!legalOpen) return null;
     return (
       <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-fade-in text-neutral-100">
         <div className="bg-zinc-900 border border-zinc-800 max-w-2xl w-full max-h-[80vh] rounded-[2rem] flex flex-col overflow-hidden shadow-2xl relative">
-          {/* Modal Header */}
           <div className="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50 backdrop-blur-xl">
             <div>
               <h3 className="text-lg font-bold tracking-tight text-white uppercase tracking-[0.1em]">
@@ -1010,7 +970,6 @@ export default function App() {
             </button>
           </div>
 
-          {/* Modal Body */}
           <div className="p-8 overflow-y-auto space-y-6 text-xs text-neutral-455 leading-relaxed custom-scrollbar font-sans text-left">
             <section className="space-y-2">
               <h4 className="font-extrabold text-neutral-200 uppercase tracking-wider text-[11px]">
@@ -1022,9 +981,6 @@ export default function App() {
                 still graphics, brand layout mockups, and synthesized campaign
                 teasers generated through our active Google Imagen pipeline.
                 AuraTeaser claims no ownership over your generated outputs.
-                However, AuraTeaser makes no representations or warranties
-                regarding the copyrightability or trademark eligibility of
-                AI-generated content under local intellectual property laws.
               </p>
             </section>
 
@@ -1037,11 +993,7 @@ export default function App() {
                 configurations to the AuraTeaser History Vault, your brand
                 colors, prompt syntaxes, day matrices, and layout offsets are
                 encrypted in transit and at rest within private, sandboxed
-                Firebase environments. We strictly maintain a zero-training
-                policy: your proprietary brand materials, custom product
-                descriptions, and prompt history are never used to train
-                artificial intelligence models, nor are they ever monetized or
-                shared with third parties.
+                Firebase environments.
               </p>
             </section>
 
@@ -1053,13 +1005,7 @@ export default function App() {
                 Synthesis services are facilitated directly through the
                 enterprise-tier Google Vertex AI network. Users assume sole
                 responsibility for the inputs they provide and the materials
-                they generate. By compiling rendering prompts, you agree to
-                generate materials that adhere strictly to local regional
-                standards regarding fair use, intellectual copyright, and
-                advertising legislation. You agree to indemnify, defend, and
-                hold harmless AuraTeaser from any claims, damages, liabilities,
-                or legal fees arising from content generated by your account
-                that infringes upon third-party rights.
+                they generate.
               </p>
             </section>
 
@@ -1069,18 +1015,7 @@ export default function App() {
               </h4>
               <p>
                 Professional subscription licenses are activated and provisioned
-                immediately upon payment. Due to the immediate high-performance
-                GPU server cost footprints associated with Google Imagen
-                processing networks, all transactions are strictly
-                non-refundable.
-              </p>
-              <p>
-                Subscriptions may be canceled at any point through your account
-                dashboard. Upon cancellation, your subscription will remain
-                active with full platform access until the end of your current
-                paid billing cycle, at which point further automatic billing
-                will cease. No partial or prorated refunds will be issued for
-                unused time within a billing cycle.
+                immediately upon payment. Due to immediate high-performance GPU resources, all transactions are strictly non-refundable.
               </p>
             </section>
 
@@ -1089,7 +1024,6 @@ export default function App() {
             </p>
           </div>
 
-          {/* Modal Footer */}
           <div className="p-4 border-t border-zinc-800 bg-zinc-950 flex justify-end">
             <button
               onClick={() => setLegalOpen(false)}
@@ -1103,21 +1037,16 @@ export default function App() {
     );
   };
 
-  // =========================================================================
-  // VIEW 1: LANDING PAGE (UPGRADED HIGH-END EDITORIAL DESIGN WITH 'best picture.png')
-  // =========================================================================
   if (authMode === 'landing') {
     return (
       <div
         className="min-h-screen bg-black text-neutral-100 flex flex-col justify-between selection:bg-amber-650 selection:text-white relative overflow-hidden"
         style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
       >
-        {/* Editorial Abstract Glowing Backgrounds */}
         <div className="absolute top-[-10%] left-[-20%] w-[70vw] h-[60vh] bg-amber-500/5 rounded-full blur-[150px] pointer-events-none" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vh] bg-purple-900/10 rounded-full blur-[180px] pointer-events-none" />
 
-        {/* Asymmetrical Luxury Editorial Header */}
-        <header className="px-6 sm:px-12 py-10 flex justify-between items-center bg-transparent sticky top-0 z-40 max-w-7xl mx-auto w-full">
+        <header className="px-6 sm:px-12 py-10 flex justify-between items-center bg-transparent static top-0 z-40 max-w-7xl mx-auto w-full">
           <div className="flex flex-col items-start">
             <span className="font-extrabold tracking-[0.45em] text-2xl uppercase text-white leading-none">
               AuraTeaser
@@ -1135,7 +1064,6 @@ export default function App() {
         </header>
 
         <main className="max-w-7xl mx-auto px-6 py-12 flex-1 flex flex-col lg:flex-row items-center justify-center gap-12 sm:gap-16 z-10">
-          {/* Left Hero Section (Text Copywriting) */}
           <div className="flex-1 text-left space-y-8 max-w-2xl">
             <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/[0.03] border border-white/10 text-neutral-400 text-[9px] font-medium uppercase tracking-[0.3em] backdrop-blur-md">
               <span className="relative flex h-2 w-2">
@@ -1159,7 +1087,6 @@ export default function App() {
               </p>
             </div>
 
-            {/* Launch Call-To-Actions */}
             <div className="flex flex-col sm:flex-row gap-4 pt-2">
               <button
                 onClick={() => setAuthMode('register')}
@@ -1175,7 +1102,6 @@ export default function App() {
               </button>
             </div>
 
-            {/* Micro Feature Grid */}
             <div className="grid grid-cols-2 gap-6 pt-12 border-t border-white/5">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
@@ -1204,23 +1130,20 @@ export default function App() {
             </div>
           </div>
 
-          {/* Right Hero Section (Stunning, responsive 'best picture.png' showcase card) */}
           <div className="flex-1 flex justify-center w-full max-w-md lg:max-w-lg">
             <div className="bg-[#18181B]/30 border border-white/10 p-4 rounded-[2.5rem] shadow-2xl backdrop-blur-xl w-full">
               <div className="aspect-square w-full rounded-[2rem] overflow-hidden relative bg-black border border-white/5 flex items-center justify-center">
                 <img
                   src={activeImageSource}
-                  alt="Visionair Dubai Helicopter Campaign Teaser Viewport"
+                  alt="AuraTeaser Teaser Viewport"
                   className="w-full h-full object-cover animate-fade-in"
                   onError={() => {
-                    // Safe browser image failover rotation chain (CORS immune)
                     if (landingPathIndex < landingImageCandidates.length - 1) {
                       setLandingPathIndex((prev) => prev + 1);
                     }
                   }}
                 />
 
-                {/* Floating luxury stickers */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent flex flex-col justify-end p-8 text-left pointer-events-none">
                   <div className="px-3.5 py-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-full text-[9px] font-black uppercase tracking-widest self-start mb-3 backdrop-blur-md animate-pulse">
                     {stickerText}
@@ -1229,7 +1152,7 @@ export default function App() {
                     Studio Reveal Concept
                   </h4>
                   <p className="text-[11px] text-neutral-455 mt-1 uppercase tracking-widest">
-                    Dubai Clothing Brand Campaign
+                    Campaign Brand Teaser Viewport
                   </p>
                 </div>
               </div>
@@ -1255,27 +1178,22 @@ export default function App() {
               href="mailto:aurateaser.studio@gmail.com"
               className="hover:text-white underline tracking-[0.2em] transition-colors duration-300"
             >
-              Support: aurateaser.studio@gmail.com
+              Support Link
             </a>
           </div>
         </footer>
 
-        {/* Render Legal Modal dynamically inside early return */}
         {renderLegalModal()}
       </div>
     );
   }
 
-  // =========================================================================
-  // VIEW 2: AUTH PAGES (LOGIN / REGISTER) WITH GLASSMORPHISM AND STANDARD DARK BACKDROP
-  // =========================================================================
   if (authMode === 'login' || authMode === 'register') {
     return (
       <div
         className="min-h-screen bg-[#0A0A0B] text-neutral-100 flex items-center justify-center px-4 relative overflow-hidden"
         style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
       >
-        {/* Editorial Abstract Glowing Backgrounds to matching other screens */}
         <div className="absolute top-[-10%] left-[-20%] w-[70vw] h-[60vh] bg-amber-500/5 rounded-full blur-[150px] pointer-events-none" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vh] bg-purple-900/10 rounded-full blur-[180px] pointer-events-none" />
 
@@ -1373,15 +1291,11 @@ export default function App() {
           </div>
         </div>
 
-        {/* Render Legal Modal dynamically inside early return */}
         {renderLegalModal()}
       </div>
     );
   }
 
-  // =========================================================================
-  // VIEW 2.5: PASSWORD RESET VIEW
-  // =========================================================================
   if (authMode === 'forgot') {
     return (
       <div
@@ -1448,22 +1362,17 @@ export default function App() {
           </div>
         </div>
 
-        {/* Render Legal Modal dynamically inside early return */}
         {renderLegalModal()}
       </div>
     );
   }
 
-  // =========================================================================
-  // VIEW 3: INTERACTIVE CHECKOUT/PAYWALL WITH FLIPPING CARD & SECURE STRIPE HANDSHAKE
-  // =========================================================================
   if (authMode === 'paywall') {
     return (
       <div
-        className="min-h-screen bg-black text-neutral-150 flex flex-col justify-between selection:bg-amber-600 selection:text-white relative overflow-hidden"
+        className="min-h-screen bg-black text-neutral-150 flex flex-col justify-between selection:bg-amber-650 selection:text-white relative overflow-hidden"
         style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
       >
-        {/* Subtle Luxury Glowing Spotlights behind paywall */}
         <div className="absolute top-[-20%] left-[10%] w-[60vw] h-[60vh] bg-amber-500/5 rounded-full blur-[160px] pointer-events-none" />
         <div className="absolute bottom-[-10%] right-[5%] w-[45vw] h-[45vh] bg-neutral-900/40 rounded-full blur-[140px] pointer-events-none" />
 
@@ -1486,7 +1395,6 @@ export default function App() {
         </header>
 
         <main className="max-w-5xl mx-auto px-6 py-12 space-y-12 flex-1 flex flex-col justify-center z-10 w-full">
-          {/* Re-designed editorial paywall title & dynamic benefits block */}
           <div className="text-center space-y-4 max-w-2xl mx-auto">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/25 text-amber-400 rounded-full text-[8px] font-black uppercase tracking-widest">
               <Sparkles className="w-3 h-3 text-amber-500" />
@@ -1502,7 +1410,6 @@ export default function App() {
               Vault.
             </p>
 
-            {/* Quick Benefits Checklist Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 text-left">
               <div className="p-3.5 bg-neutral-950/50 border border-white/5 rounded-xl flex items-start gap-2.5">
                 <div className="w-5 h-5 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/25 shrink-0 mt-0.5">
@@ -1546,7 +1453,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Pricing Toggle Switch */}
           <div className="flex bg-[#121214] p-1 rounded-xl max-w-[260px] mx-auto border border-neutral-800">
             <button
               onClick={() => setBillingPeriod('monthly')}
@@ -1576,7 +1482,6 @@ export default function App() {
             </button>
           </div>
 
-          {/* Dynamic Price Display */}
           <div className="text-center space-y-1">
             <div className="text-5xl font-black tracking-tighter text-white flex items-center justify-center">
               <span>{billingPeriod === 'monthly' ? '€24' : '€19'}</span>
@@ -1592,7 +1497,6 @@ export default function App() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center max-w-3xl mx-auto w-full pt-2">
-            {/* Left side: Premium Live Flipping Credit Card Visual */}
             <div className="lg:col-span-5 flex justify-center">
               <div
                 className="w-72 h-44 rounded-2xl p-5 text-white font-mono flex flex-col justify-between shadow-2xl relative overflow-hidden transition-all duration-700 cursor-pointer"
@@ -1657,7 +1561,7 @@ export default function App() {
                         {cardCvc || '•••'}
                       </div>
                     </div>
-                    <p className="text-[6px] text-neutral-600 leading-tight">
+                    <p className="text-[6px] text-neutral-650 leading-tight">
                       This interactive credential engine is built on premium
                       design patterns for validation. Protected under sandbox
                       environment encryption layers.
@@ -1667,7 +1571,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Right side: Input fields / Live Stripe Handshake */}
             <div className="lg:col-span-7 space-y-4">
               <div className="p-6 bg-zinc-900/60 border border-white/5 rounded-2xl text-left space-y-4 shadow-xl backdrop-blur-xl">
                 <div className="flex items-center gap-3">
@@ -1719,7 +1622,6 @@ export default function App() {
 
                   <button
                     onClick={() => {
-                      // Developer quick-pass mock upgrade bypass
                       updateSubscriptionInDb(true).then(() => {
                         setAuthMode('studio');
                         triggerNotification(
@@ -1750,15 +1652,11 @@ export default function App() {
           Secure Irish Studio Portal &bull; Irish Gateway Protected
         </footer>
 
-        {/* Render Legal Modal dynamically inside early return */}
         {renderLegalModal()}
       </div>
     );
   }
 
-  // =========================================================================
-  // EXCLUSIVE VIEW: CONCURRENT SESSION CONFLICT LOCKED SCREEN
-  // =========================================================================
   if (sessionConflict) {
     return (
       <div
@@ -1822,15 +1720,11 @@ export default function App() {
     );
   }
 
-  // =========================================================================
-  // VIEW 4: THE FULL PRODUCTION DASHBOARD (100% UNRESTRICTED)
-  // =========================================================================
   return (
     <div
       className="min-h-screen bg-black text-neutral-100 font-sans flex flex-col selection:bg-amber-600 selection:text-black pb-12"
       style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
     >
-      {/* Toast Notification */}
       {notification && (
         <div className="fixed bottom-5 right-5 z-50 bg-neutral-900 border border-neutral-800 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 text-xs animate-in fade-in slide-in-from-bottom-5 duration-300">
           <CheckCircle2 className="w-4 h-4 text-emerald-500" />
@@ -1838,7 +1732,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Premium Header */}
       <header className="border-b border-neutral-900 bg-[#0A0A0B]/85 backdrop-blur-md sticky top-0 z-40 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div
@@ -1867,7 +1760,7 @@ export default function App() {
             <User className="w-3.5 h-3.5 text-amber-500" />
             <span>
               Active Operator:{' '}
-              <strong className="text-neutral-200 text-ellipsis truncate max-w-[120px] inline-block align-middle">
+              <strong className="text-neutral-200 text-ellipsis truncate max-w-[120px] inline-block align-middle font-semibold">
                 {user?.email || 'Studio Creator'}
               </strong>
             </span>
@@ -1883,7 +1776,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* Free Trial Banner Indicator */}
       {!isSubscribed && (
         <div className="bg-gradient-to-r from-amber-600/10 to-rose-600/10 border-b border-amber-500/20 px-6 py-2.5 flex items-center justify-between text-xs text-amber-450">
           <span className="flex items-center gap-2">
@@ -1902,11 +1794,9 @@ export default function App() {
         </div>
       )}
 
-      {}
-      {/* SECURE API PIPELINE STATUS ALERT */}
       {!apiKey && (
-        <div className="bg-red-500/10 border-b border-red-500/20 px-6 py-3 flex items-center justify-between text-xs text-red-400">
-          <span className="flex items-center gap-2 animate-pulse">
+        <div className="bg-red-500/10 border-b border-red-500/20 px-6 py-3 flex items-center justify-between text-xs text-red-400 animate-pulse">
+          <span className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
             <span>
               <strong>Secure Pipeline Offline:</strong> No active Gemini API key was detected. Please declare your <code>VITE_GEMINI_API_KEY</code> within StackBlitz's secure environment settings to allow image generations.
@@ -1918,11 +1808,8 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Grid Workspace */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Side Controls (7 Columns) */}
         <section className="lg:col-span-7 flex flex-col gap-6">
-          {/* Autonomous Prompt Expansion Desk */}
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 space-y-4 shadow-xl">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-800 pb-3 gap-2">
               <div className="flex items-center gap-2">
@@ -1948,7 +1835,7 @@ export default function App() {
                   <button
                     onClick={handleGeminiExpandPrompt}
                     disabled={isExpandingPrompt}
-                    className="px-2.5 py-1 bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-black rounded-lg text-[10px] font-bold flex items-center gap-1 transition focus:outline-none"
+                    className="px-2.5 py-1 bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-450 hover:to-rose-450 text-black rounded-lg text-[10px] font-bold flex items-center gap-1 transition focus:outline-none"
                   >
                     {isExpandingPrompt ? (
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -1970,7 +1857,7 @@ export default function App() {
                 onChange={(e) => setUserConcept(e.target.value)}
                 rows={3}
                 className="w-full bg-black border border-neutral-800 rounded-xl p-3 text-xs text-neutral-300 focus:outline-none focus:border-amber-500 text-white leading-relaxed"
-                placeholder="Describe your design vision simply (e.g., green mug, warm light, dark background)..."
+                placeholder="Describe your design vision simply..."
               />
             </div>
 
@@ -1986,7 +1873,6 @@ export default function App() {
             )}
           </div>
 
-          {/* Camera Angles & Seed Constraints */}
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
               <div className="flex items-center gap-2">
@@ -2085,7 +1971,6 @@ export default function App() {
             </button>
           </div>
 
-          {/* Active Process Logging Desk */}
           <div className="bg-[#0C0C0E] border border-neutral-900 rounded-2xl p-4 space-y-2.5">
             <div className="flex items-center justify-between border-b border-neutral-900 pb-2">
               <div className="flex items-center gap-2 text-neutral-400">
@@ -2123,7 +2008,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Overlays & Copywriting Controls */}
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 space-y-4 shadow-xl">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
@@ -2164,7 +2048,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Tactile Sticker Placement */}
             <div className="p-4 bg-[#0C0C0E] border border-neutral-800 rounded-xl space-y-3">
               <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-300 block">
                 Interactive Badge Positioning Calibration
@@ -2209,7 +2092,7 @@ export default function App() {
             </div>
 
             <div>
-              <label className="block text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-1.5">
+              <label className="block text-[10px] text-neutral-550 font-bold uppercase tracking-wider mb-1.5">
                 Social Caption Template Blueprint
               </label>
               <textarea
@@ -2231,7 +2114,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Cloud history drawer */}
           <div className="bg-neutral-900 border border-[#27272A] rounded-2xl p-5 space-y-4">
             <span className="text-xs font-bold text-neutral-300 uppercase tracking-widest flex items-center gap-2">
               <FolderHeart className="w-4 h-4 text-amber-500" />
@@ -2285,9 +2167,7 @@ export default function App() {
           </div>
         </section>
 
-        {/* Right Hand Live Viewport */}
         <section className="lg:col-span-5 flex flex-col gap-6">
-          {/* Performance scorecard */}
           <div className="bg-neutral-900 border border-[#27272A] rounded-2xl p-5 space-y-4 shadow-xl">
             <span className="text-xs font-bold text-neutral-300 uppercase tracking-widest flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-amber-500 animate-pulse" />
@@ -2335,10 +2215,6 @@ export default function App() {
                   value={activePlatform}
                   onChange={(e) => {
                     setActivePlatform(e.target.value);
-                    if (e.target.value === 'tiktok') setAspectRatio('story');
-                    else if (e.target.value === 'pinterest')
-                      setAspectRatio('landscape');
-                    else setAspectRatio('square');
                     triggerNotification(
                       `Simulating platform layouts: ${e.target.value}`
                     );
@@ -2393,10 +2269,8 @@ export default function App() {
               </div>
             )}
 
-            {/* Simulated Live Viewport Feed */}
             <div className="flex-1 flex items-center justify-center bg-[#0C0C0E]/60 rounded-xl border border-neutral-900 p-4 relative min-h-[340px]">
               <div className="w-full max-w-[300px] bg-black border border-neutral-900 rounded-2xl overflow-hidden shadow-2xl relative">
-                {/* Watermark indicators */}
                 <div className="absolute top-3 left-3 z-20 bg-black/70 backdrop-blur-md border border-neutral-800 p-1.5 rounded-lg text-white flex items-center gap-1">
                   <ImageIcon className="w-3.5 h-3.5 text-amber-500" />
                   <span className="text-[8px] font-mono tracking-wider font-bold">
@@ -2411,7 +2285,7 @@ export default function App() {
                     <img
                       src={activeImageSource}
                       alt="AuraTeaser Preview View"
-                      className="w-full h-full object-cover select-none"
+                      className="w-full h-full object-cover select-none animate-fade-in"
                     />
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center flex-col text-neutral-600 gap-2">
@@ -2422,7 +2296,6 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* Tactile Coordinates Badge Overlay */}
                   {showSticker && (
                     <div
                       className="absolute transition-all duration-300 z-30"
@@ -2465,7 +2338,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Action Buttons */}
             <div className="grid grid-cols-2 gap-3 pt-2">
               <button
                 onClick={() => {
@@ -2493,7 +2365,6 @@ export default function App() {
         </section>
       </main>
 
-      {/* Render Legal Modal dynamically inside main layout flow (for logged-in Studio view) */}
       <footer className="border-t border-neutral-900 bg-black py-12 px-6 mt-12 text-center text-zinc-500 text-xs">
         <div className="max-w-xl mx-auto space-y-4">
           <p className="font-semibold uppercase tracking-widest text-[10px] text-zinc-400">
@@ -2526,13 +2397,11 @@ export default function App() {
             </a>
           </div>
           <p className="text-[9px] text-zinc-700 font-mono">
-            &copy; {new Date().getFullYear()} AuraTeaser Brand Networks. All
-            Rights Reserved.
+            &copy; {new Date().getFullYear()} AuraTeaser Brand Networks. All Rights Reserved.
           </p>
         </div>
       </footer>
 
-      {/* Legal Overlay Modal */}
       {renderLegalModal()}
     </div>
   );
