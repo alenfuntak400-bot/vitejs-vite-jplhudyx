@@ -189,7 +189,7 @@ export default function App() {
 
   const isFirebaseUnconfigured =
     !firebaseConfig.apiKey ||
-    firebaseConfig.apiKey === 'YOUR_FIREBASE_API_KEY_HERE';
+    firebaseConfig.apiKey === VITE_GEMINI_API_KEY
 
   // --- Inject Tailwind CSS Dynamically to Guarantee Styling ---
   useEffect(() => {
