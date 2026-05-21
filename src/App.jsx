@@ -58,7 +58,7 @@ import {
 const apiKey = '';
 
 // Dynamic fallback to guarantee execution in all sandbox & external environments
-const activeApiKey = apiKey || VITE_GEMINI_API_KEY
+const activeApiKey = apiKey || 'AIzaSyD6jccXOqicJgLssqAmUT0z5JSIj0Ggu_k';
 
 // =========================================================================
 // 1. YOUR LIVE COPIED FIREBASE CONFIGURATION
@@ -189,7 +189,7 @@ export default function App() {
 
   const isFirebaseUnconfigured =
     !firebaseConfig.apiKey ||
-    firebaseConfig.apiKey === VITE_GEMINI_API_KEY
+    firebaseConfig.apiKey === 'YOUR_FIREBASE_API_KEY_HERE';
 
   // --- Inject Tailwind CSS Dynamically to Guarantee Styling ---
   useEffect(() => {
