@@ -34,6 +34,7 @@ import { initializeApp, getApps } from 'firebase/app';
 import {
   getAuth,
   signInAnonymously,
+  signInWithCustomToken,
   onAuthStateChanged,
   signOut,
   createUserWithEmailAndPassword,
@@ -52,7 +53,15 @@ import {
 } from 'firebase/firestore';
 
 // =========================================================================
-// 1. PUBLIC FIREBASE CONFIGURATION (Perfectly safe to leave public)
+// BACKEND GATEWAY CONFIGURATION
+// =========================================================================
+// If running in development (like StackBlitz or localhost), change this to 
+// your deployed Vercel backend URL (e.g., 'https://aurateaser-brand-studio.vercel.app/api/generate')
+// to avoid local 404 errors!
+const BACKEND_URL = '/api/generate';
+
+// =========================================================================
+// 1. YOUR LIVE COPIED FIREBASE CONFIGURATION
 // =========================================================================
 const firebaseConfig = {
   apiKey: 'AIzaSyCk4Fb_C-l6LLBEStTdJguC34Z7bW_p3us',
@@ -63,14 +72,10 @@ const firebaseConfig = {
   appId: '1:771946262378:web:cfd63201b2c1c6d4e57f13',
 };
 
-// =========================================================================
-// 2. PUBLIC STRIPE PRODUCTION POOL LINKS (Perfectly safe to leave public)
-// =========================================================================
-const STRIPE_LINK_MONTHLY = 'https://buy.stripe.com/test_3cI9AU8OteHf8MZd272kw01';
-const STRIPE_LINK_YEARLY = 'https://buy.stripe.com/test_5kQ6oI1m142B0gt6DJ2kw02';
-
-// SECURE NOTE: The secret Gemini/Imagen API key is completely removed from here.
-// It is now securely pulled from Vercel's Environment Variables inside `/api/generate.js`.
+const STRIPE_LINK_MONTHLY =
+  'https://buy.stripe.com/test_3cI9AU8OteHf8MZd272kw01';
+const STRIPE_LINK_YEARLY =
+  'https://buy.stripe.com/test_5kQ6oI1m142B0gt6DJ2kw02';
 
 // Initialize Firebase services safely
 let app;
@@ -82,8 +87,10 @@ if (!getApps().length) {
 
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = 'aurateaser-brand-studio';
+const appId =
+  typeof __app_id !== 'undefined' ? __app_id : 'aurateaser-brand-studio';
 
+// High-fidelity fallback asset pathways
 const landingImageCandidates = [
   'best%20picture.png',
   'best picture.png',
@@ -91,10 +98,7 @@ const landingImageCandidates = [
   './best picture.png',
   '../best%20picture.png',
   '/best%20picture.png',
-  'AuraTeaser-Asset-5582910471 (3).png',
-  'AuraTeaser-Asset-5582910471%20%283%29.png',
-  'edited-image.jpg',
-  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500"><rect width="100%" height="100%" fill="%230c0c0e"/><text x="50%" y="50%" fill="%2371717a" font-family="sans-serif" font-size="12" text-anchor="middle" font-weight="bold">VISIONAIR DUBAI ACTIVE</text></svg>',
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500"><rect width="100%" height="100%" fill="%230c0c0e"/><circle cx="250" cy="250" r="120" fill="%23D97706" fill-opacity="0.12"/><text x="50%" y="50%" fill="%2371717a" font-family="sans-serif" font-size="14" text-anchor="middle" font-weight="bold">DUBAI CAMPAIGN PREVIEW ACTIVE</text></svg>',
 ];
 
 export default function App() {
@@ -103,7 +107,7 @@ export default function App() {
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [resetEmail, setResetEmail] = useState('');
-  const [authMode, setAuthMode] = useState('landing'); // 'landing' | 'login' | 'register' | 'forgot' | 'paywall' | 'studio'
+  const [authMode, setAuthMode] = useState('landing');
   const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [billingPeriod, setBillingPeriod] = useState('monthly');
@@ -118,14 +122,22 @@ export default function App() {
   // --- Free Trial States ---
   const [trialGens, setTrialGens] = useState(2);
 
+  // --- Credit Card Mock States ---
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvc, setCardCvc] = useState('');
+  const [cardName, setCardName] = useState('');
+  const [isCardFlipped, setIsCardFlipped] = useState(false);
+
   // --- Workspace Teaser State (Production Suite) ---
   const [cameraAngle, setCameraAngle] = useState('Eye Level Cinematic Frame');
   const [seedLock, setSeedLock] = useState(true);
   const [generationSeed, setGenerationSeed] = useState('5582910471');
   const [isAutonomousPrompt, setIsAutonomousPrompt] = useState(true);
 
+  // Clean, healthy workspace starting concept focusing on beautiful, positive design aesthetics
   const [userConcept, setUserConcept] = useState(
-    'premium heavy-cotton black t-shirt with VISIONAIR glowing neon-white text hanging on a clean hanger below a high-tech camera drone hovering over the golden foggy skyline of Dubai at sunset, photorealistic studio'
+    'premium organic cotton white t-shirt hanging on a natural bamboo hanger in a minimalist architectural room with soft warm natural morning sunbeams highlighting clean fabric textures'
   );
   const [computedSystemPrompt, setComputedSystemPrompt] = useState('');
   const [isExpandingPrompt, setIsExpandingPrompt] = useState(false);
@@ -133,20 +145,21 @@ export default function App() {
   // --- Base Aesthetic States ---
   const [brandColor, setBrandColor] = useState('#D97706');
   const [daysCount, setDaysCount] = useState('7');
-  const [locationName, setLocationName] = useState('Dubai');
+  const [locationName, setLocationName] = useState('Dublin');
   const [activePlatform, setActivePlatform] = useState('instagram');
-  const [aspectRatio, setAspectRatio] = useState('square');
   const [previewMode, setPreviewMode] = useState('mockup');
-  const [lightingStyle, setLightingStyle] = useState('High Contrast Rim Lighting');
+  const [lightingStyle, setLightingStyle] = useState(
+    'High Contrast Rim Lighting'
+  );
   const [textureFinish, setTextureFinish] = useState('Matte Ceramic');
 
   // --- Caption & Interactive Floating Badges ---
   const [captionTone, setCaptionTone] = useState('Hype');
   const [rawCaption, setRawCaption] = useState(
-    'The next chapter of minimalist design. ⏳ Coming to you direct from {{location}}. Witness the full unveiling on Day {{day}}. Comment for priority access list.'
+    'Embrace simple clean lines. ⏳ Coming soon to {{location}}. Experience the full aesthetic reveal on Day {{day}}.'
   );
   const [showSticker, setShowSticker] = useState(true);
-  const [stickerText, setStickerText] = useState('VISIONAIR');
+  const [stickerText, setStickerText] = useState('STUDIO');
   const [stickerX, setStickerX] = useState(8);
   const [stickerY, setStickerY] = useState(8);
 
@@ -178,7 +191,7 @@ export default function App() {
     !firebaseConfig.apiKey ||
     firebaseConfig.apiKey === 'YOUR_FIREBASE_API_KEY_HERE';
 
-  // --- Inject Tailwind CSS Dynamically ---
+  // --- Inject Tailwind CSS Dynamically to Guarantee Styling ---
   useEffect(() => {
     if (!document.getElementById('tailwind-play-engine')) {
       const script = document.createElement('script');
@@ -251,7 +264,14 @@ export default function App() {
 
     const initAuth = async () => {
       try {
-        await signInAnonymously(auth);
+        if (
+          typeof __initial_auth_token !== 'undefined' &&
+          __initial_auth_token
+        ) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
       } catch (err) {
         setIsMockAuth(true);
       }
@@ -262,6 +282,7 @@ export default function App() {
       if (currentUser) {
         setUser(currentUser);
 
+        // Sync subscriber state and trial status safely using standard collection structure
         const profileDocRef = doc(
           db,
           'artifacts',
@@ -303,6 +324,7 @@ export default function App() {
             setAuthMode('studio');
           });
 
+        // Sync Creative Vault
         const creationsColRef = collection(
           db,
           'artifacts',
@@ -318,7 +340,9 @@ export default function App() {
             snap.forEach((doc) => list.push({ id: doc.id, ...doc.data() }));
             setSavedCreations(list);
           },
-          () => {}
+          (error) => {
+            console.error('Vault listening subscription error: ', error);
+          }
         );
 
         return () => unsubscribeCreations();
@@ -361,7 +385,9 @@ export default function App() {
           }
         }
       },
-      () => {}
+      (error) => {
+        console.error('Concurreny tracking error: ', error);
+      }
     );
 
     return () => unsubscribeSession();
@@ -470,7 +496,9 @@ export default function App() {
         'creations'
       );
       await addDoc(colRef, backupItem);
-      triggerNotification('Teaser configuration saved securely to Cloud Vault!');
+      triggerNotification(
+        'Teaser configuration saved securely to Cloud Vault!'
+      );
     } catch (err) {
       setSavedCreations((prev) => [backupItem, ...prev]);
       triggerNotification('Cloud saved to temporary sandbox.');
@@ -502,12 +530,12 @@ export default function App() {
     setUserConcept(item.userConcept || '');
     setBrandColor(item.brandColor || '#D97706');
     setDaysCount(item.daysCount || '7');
-    setLocationName(item.locationName || 'Dubai');
+    setLocationName(item.locationName || 'Dublin');
     setCameraAngle(item.cameraAngle || 'Eye Level Cinematic Frame');
     setLightingStyle(item.lightingStyle || 'High Contrast Rim Lighting');
     setTextureFinish(item.textureFinish || 'Matte Ceramic');
     setGenerationSeed(item.generationSeed || '5582910471');
-    setStickerText(item.stickerText || 'VISIONAIR');
+    setStickerText(item.stickerText || 'STUDIO');
     if (item.aiImageUrl) {
       setAiImageUrl(item.aiImageUrl);
       setPreviewMode('ai');
@@ -517,6 +545,7 @@ export default function App() {
     triggerNotification('Teaser parameters restored!');
   };
 
+  // --- Autonomous Formula compiler ---
   useEffect(() => {
     if (isAutonomousPrompt) {
       const expanded = `Professional commercial studio lifestyle advertising photography, shot at ${cameraAngle.toLowerCase()}, featuring a ${userConcept}. Texture profile: ${textureFinish.toLowerCase()}. Ambient environment enhanced by ${lightingStyle.toLowerCase()}. Masterpiece grade, photorealistic rendering, Raytraced volumetric atmosphere, Unreal Engine 5 render style, seed:${generationSeed}`;
@@ -533,6 +562,7 @@ export default function App() {
     generationSeed,
   ]);
 
+  // --- Realtime Heuristic Engine ---
   useEffect(() => {
     const fontLen = computedSystemPrompt.length;
     const hasColor = brandColor !== '#D97706' ? 15 : 5;
@@ -667,7 +697,6 @@ export default function App() {
     );
   };
 
-  // --- Auth Screen Actions ---
   const handleUserRegistration = async (e) => {
     e.preventDefault();
     if (!authEmail || !authPassword) return;
@@ -727,13 +756,17 @@ export default function App() {
       if (isMockAuth) {
         setTimeout(() => {
           setIsAuthLoading(false);
-          triggerNotification(`Recovery link transmitted to ${targetEmail} (Sandbox)!`);
+          triggerNotification(
+            `Recovery link transmitted to ${targetEmail} (Sandbox)!`
+          );
           setAuthMode('login');
         }, 1200);
       } else {
         await sendPasswordResetEmail(auth, targetEmail);
         setIsAuthLoading(false);
-        triggerNotification(`Password recovery link transmitted to ${targetEmail}!`);
+        triggerNotification(
+          `Password recovery link transmitted to ${targetEmail}!`
+        );
         setAuthMode('login');
       }
     } catch (err) {
@@ -748,9 +781,7 @@ export default function App() {
     triggerNotification('All prior licenses recovered successfully!');
   };
 
-  // =========================================================================
-  // SECURE MULTIMODAL IMAGEN 4.0 PIPELINE VIA BACKEND
-  // =========================================================================
+  // --- GOOGLE IMAGEN 4.0 PIPELINE (ROUTED SECURELY TO YOUR VERCEL SERVER BRIDGE) ---
   const generateTeaserImage = async () => {
     if (!isSubscribed && trialGens <= 0) {
       setAuthMode('paywall');
@@ -764,9 +795,9 @@ export default function App() {
     setIsGenerating(true);
     setError(null);
     setGenerationLogs([
-      'Initializing high-fashion product rendering suite...',
+      'Initializing organic product rendering suite...',
       'Compiling prompt matrix parameters...',
-      'Connecting to secure API serverless gateway...',
+      'Connecting to secure Vercel backend gateway...',
     ]);
 
     const addLogWithDelay = (message, delay) => {
@@ -779,30 +810,38 @@ export default function App() {
     };
 
     try {
-      // SECURELY FETCH FROM SERVERLESS BACKEND INSTEAD OF DIRECT GOOGLE CALLS
-      const response = await fetch('/api/generate', {
+      // Directs requests securely to your Vercel backend
+      const response = await fetch(BACKEND_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'generateImage',
+          type: 'image',
           prompt: computedSystemPrompt,
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP Error ${response.status}`);
+        const rawErrorMessage =
+          errorData?.error ||
+          `HTTP Error ${response.status}: ${response.statusText}`;
+        throw new Error(rawErrorMessage);
       }
 
       const data = await response.json();
-      if (data.imageUrl) {
-        setAiImageUrl(data.imageUrl);
+      if (data.predictions?.[0]?.bytesBase64Encoded) {
+        setAiImageUrl(
+          `data:image/png;base64,${data.predictions[0].bytesBase64Encoded}`
+        );
         setIsOutOfSync(false);
         setPreviewMode('ai');
-        await addLogWithDelay('Success: Secure serverless rendering completed.', 100);
-        triggerNotification('Teaser output generated securely!');
+        await addLogWithDelay(
+          'Success: Multimodal viewport render completed.',
+          100
+        );
+        triggerNotification('Teaser output generated successfully!');
       } else {
-        throw new Error('Invalid format returned from API gateway.');
+        throw new Error('Invalid payload format returned from gateway.');
       }
     } catch (err) {
       setError(err.message);
@@ -813,39 +852,39 @@ export default function App() {
     }
   };
 
-  // =========================================================================
-  // SECURE GEMINI PROMPT EXPANDER VIA BACKEND
-  // =========================================================================
+  // --- GEMINI PROMPT OPTIMIZER (ROUTED SECURELY TO YOUR VERCEL SERVER BRIDGE) ---
   const handleGeminiExpandPrompt = async () => {
     setIsExpandingPrompt(true);
-    setGenerationLogs(['Contacting secure API gateway for Prompt Optimization...']);
+    setGenerationLogs(['Contacting secure backend for Gemini AI optimization...']);
 
     try {
-      // SECURELY POST TO BACKEND INSTEAD OF DIRECT GOOGLE CALLS
-      const response = await fetch('/api/generate', {
+      const response = await fetch(BACKEND_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'expandPrompt',
-          userConcept: userConcept,
+          type: 'text',
+          prompt: `You are an expert commercial advertising director. Rewrite this simple product concept into an incredibly detailed, clean, and elegant high-fashion description paragraph focusing on healthy daylight, positive composition, camera parameters, and minimalist textile aesthetics. Keep it to one single fluid paragraph. Concept: "${userConcept}"`,
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Server error');
+        throw new Error(errorData?.error || `Request failed: ${response.status}`);
       }
 
       const data = await response.json();
-      if (data.optimizedPrompt) {
-        setUserConcept(data.optimizedPrompt);
-        setGenerationLogs(['Optimized Prompt integrated successfully.']);
-        triggerNotification('Prompt optimized safely!');
+      const outputText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (outputText) {
+        setUserConcept(outputText.trim());
+        setGenerationLogs(['Gemini Prompt Expansion integrated successfully.']);
+        triggerNotification('Prompt optimized by Gemini!');
       } else {
-        throw new Error('Empty response structure.');
+        throw new Error('Empty response structure from backend.');
       }
     } catch (err) {
-      setGenerationLogs([`Expansion warning: Using local formula generator fallback.`]);
+      setGenerationLogs([
+        `Gemini Expansion warning: Using local formula generator fallback.`,
+      ]);
       triggerNotification('Using local templates.');
     } finally {
       setIsExpandingPrompt(false);
@@ -856,11 +895,11 @@ export default function App() {
     setCaptionTone(tone);
     if (tone === 'Hype') {
       setRawCaption(
-        'The next chapter of minimalist design. ⏳ Coming to you direct from {{location}}. Witness the full unveiling on Day {{day}}. Comment for priority access list.'
+        'The next chapter of minimalist design. ⏳ Coming to you direct from {{location}}. Witness the full unveiling on Day {{day}}.'
       );
     } else if (tone === 'Mysterious') {
       setRawCaption(
-        'Something is forming in the dark. 🌑 Originating from {{location}}. A brand new release unfolding on Day {{day}}. Let us know what you think is behind the curtain.'
+        'Something is forming in the light. 🌑 Originating from {{location}}. A brand new release unfolding on Day {{day}}.'
       );
     } else if (tone === 'Minimalist') {
       setRawCaption(
@@ -871,8 +910,10 @@ export default function App() {
   };
 
   const getPlatformClass = () => {
-    if (activePlatform === 'tiktok') return 'aspect-[9/16] max-h-[500px] w-auto mx-auto';
-    if (activePlatform === 'pinterest') return 'aspect-[2/3] max-h-[480px] w-auto mx-auto';
+    if (activePlatform === 'tiktok')
+      return 'aspect-[9/16] max-h-[500px] w-auto mx-auto';
+    if (activePlatform === 'pinterest')
+      return 'aspect-[2/3] max-h-[480px] w-auto mx-auto';
     return 'aspect-square w-full';
   };
 
@@ -891,11 +932,15 @@ export default function App() {
       ? aiImageUrl
       : localImageBlob || landingImageCandidates[landingPathIndex];
 
+  // =========================================================================
+  // RENDER MODAL HELPER: TO RENDER THE LEGAL OVERLAY ACCESSIBLY IN ALL FLOWS
+  // =========================================================================
   const renderLegalModal = () => {
     if (!legalOpen) return null;
     return (
       <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-fade-in text-neutral-100">
         <div className="bg-zinc-900 border border-zinc-800 max-w-2xl w-full max-h-[80vh] rounded-[2rem] flex flex-col overflow-hidden shadow-2xl relative">
+          {/* Modal Header */}
           <div className="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50 backdrop-blur-xl">
             <div>
               <h3 className="text-lg font-bold tracking-tight text-white uppercase tracking-[0.1em]">
@@ -913,6 +958,7 @@ export default function App() {
             </button>
           </div>
 
+          {/* Modal Body */}
           <div className="p-8 overflow-y-auto space-y-6 text-xs text-neutral-455 leading-relaxed custom-scrollbar font-sans text-left">
             <section className="space-y-2">
               <h4 className="font-extrabold text-neutral-200 uppercase tracking-wider text-[11px]">
@@ -924,6 +970,9 @@ export default function App() {
                 still graphics, brand layout mockups, and synthesized campaign
                 teasers generated through our active Google Imagen pipeline.
                 AuraTeaser claims no ownership over your generated outputs.
+                However, AuraTeaser makes no representations or warranties
+                regarding the copyrightability or trademark eligibility of
+                AI-generated content under local intellectual property laws.
               </p>
             </section>
 
@@ -937,7 +986,10 @@ export default function App() {
                 colors, prompt syntaxes, day matrices, and layout offsets are
                 encrypted in transit and at rest within private, sandboxed
                 Firebase environments. We strictly maintain a zero-training
-                policy.
+                policy: your proprietary brand materials, custom product
+                descriptions, and prompt history are never used to train
+                artificial intelligence models, nor are they ever monetized or
+                shared with third parties.
               </p>
             </section>
 
@@ -949,7 +1001,13 @@ export default function App() {
                 Synthesis services are facilitated directly through the
                 enterprise-tier Google Vertex AI network. Users assume sole
                 responsibility for the inputs they provide and the materials
-                they generate.
+                they generate. By compiling rendering prompts, you agree to
+                generate materials that adhere strictly to local regional
+                standards regarding fair use, intellectual copyright, and
+                advertising legislation. You agree to indemnify, defend, and
+                hold harmless AuraTeaser from any claims, damages, liabilities,
+                or legal fees arising from content generated by your account
+                that infringes upon third-party rights.
               </p>
             </section>
 
@@ -959,15 +1017,27 @@ export default function App() {
               </h4>
               <p>
                 Professional subscription licenses are activated and provisioned
-                immediately upon payment. Cancel at any point through your account dashboard.
+                immediately upon payment. Due to the immediate high-performance
+                GPU server cost footprints associated with Google Imagen
+                processing networks, all transactions are strictly
+                non-refundable.
+              </p>
+              <p>
+                Subscriptions may be canceled at any point through your account
+                dashboard. Upon cancellation, your subscription will remain
+                active with full platform access until the end of your current
+                paid billing cycle, at which point further automatic billing
+                will cease. No partial or prorated refunds will be issued for
+                unused time within a billing cycle.
               </p>
             </section>
 
-            <p className="text-[10px] text-neutral-500 italic border-t border-zinc-800 pt-4 text-center">
-              Last revised: May 18, 2026. AuraTeaser Legal Desk, Ireland Studio.
+            <p className="text-[10px] text-neutral-550 italic border-t border-zinc-800 pt-4 text-center font-sans">
+              Last revised: May 18, 2026. AuraTeaser Legal Desk, Dublin Studio.
             </p>
           </div>
 
+          {/* Modal Footer */}
           <div className="p-4 border-t border-zinc-800 bg-zinc-950 flex justify-end">
             <button
               onClick={() => setLegalOpen(false)}
@@ -982,12 +1052,12 @@ export default function App() {
   };
 
   // =========================================================================
-  // VIEW 1: LANDING PAGE (UPGRADED HIGH-END EDITORIAL DESIGN WITH 'best picture.png')
+  // VIEW 1: LANDING PAGE
   // =========================================================================
   if (authMode === 'landing') {
     return (
       <div
-        className="min-h-screen bg-black text-neutral-100 flex flex-col justify-between selection:bg-amber-650 selection:text-white relative overflow-hidden"
+        className="min-h-screen bg-black text-neutral-100 flex flex-col justify-between selection:bg-amber-655 selection:text-white relative overflow-hidden"
         style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
       >
         <div className="absolute top-[-10%] left-[-20%] w-[70vw] h-[60vh] bg-amber-500/5 rounded-full blur-[150px] pointer-events-none" />
@@ -1004,7 +1074,7 @@ export default function App() {
           </div>
           <button
             onClick={() => setAuthMode('login')}
-            className="px-6 py-2.5 bg-zinc-900/60 hover:bg-white/10 rounded-full text-[10px] font-bold border border-white/15 transition-all duration-300 uppercase tracking-widest text-white backdrop-blur-xl"
+            className="px-6 py-2.5 bg-zinc-900/60 hover:bg-white/10 rounded-full text-[10px] font-bold border border-white/15 transition-all duration-300 uppercase tracking-widest text-white backdrop-blur-xl focus:outline-none"
           >
             Client Login
           </button>
@@ -1029,7 +1099,7 @@ export default function App() {
               </h1>
               <p className="text-neutral-400 text-sm sm:text-base leading-relaxed font-light max-w-xl">
                 Elevate your commercial launch campaigns. Connect simple
-                descriptive concepts directly to secure cloud services and compile
+                descriptive concepts directly to Google Vertex AI and compile
                 studio-quality visual teaser masterpieces instantly.
               </p>
             </div>
@@ -1037,19 +1107,19 @@ export default function App() {
             <div className="flex flex-col sm:flex-row gap-4 pt-2">
               <button
                 onClick={() => setAuthMode('register')}
-                className="px-10 py-4.5 bg-white hover:bg-neutral-250 text-black font-extrabold text-xs transition duration-300 uppercase tracking-[0.2em] shadow-xl hover:shadow-white/5 active:scale-[0.98]"
+                className="px-10 py-4.5 bg-white hover:bg-neutral-250 text-black font-extrabold text-xs transition duration-300 uppercase tracking-[0.2em] shadow-xl hover:shadow-white/5 active:scale-[0.98] focus:outline-none"
               >
                 Start Free Trial
               </button>
               <button
                 onClick={() => setAuthMode('login')}
-                className="px-10 py-4.5 bg-transparent hover:bg-white/5 text-white font-semibold text-xs border border-white/20 transition uppercase tracking-[0.2em] active:scale-[0.98]"
+                className="px-10 py-4.5 bg-transparent hover:bg-white/5 text-white font-semibold text-xs border border-white/20 transition uppercase tracking-[0.2em] active:scale-[0.98] focus:outline-none"
               >
                 Enterprise Login
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-6 pt-12 border-t border-white/5">
+            <div className="grid grid-cols-2 gap-6 pt-12 border-t border-white/5 font-sans">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <FolderHeart className="w-4 h-4 text-amber-500" />
@@ -1057,7 +1127,7 @@ export default function App() {
                     Creative Vault
                   </h3>
                 </div>
-                <p className="text-[11px] text-neutral-500 leading-relaxed font-light">
+                <p className="text-[11px] text-neutral-555 leading-relaxed font-light">
                   Automated cloud preset vault for raw brand assets, copywriting
                   lines, and mockup versions.
                 </p>
@@ -1069,7 +1139,7 @@ export default function App() {
                     Aesthetics Index
                   </h3>
                 </div>
-                <p className="text-[11px] text-neutral-500 leading-relaxed font-light">
+                <p className="text-[11px] text-neutral-555 leading-relaxed font-light">
                   Predictive ROI and aesthetic scoring metrics constructed
                   dynamically using luxury market analytics.
                 </p>
@@ -1078,11 +1148,11 @@ export default function App() {
           </div>
 
           <div className="flex-1 flex justify-center w-full max-w-md lg:max-w-lg">
-            <div className="bg-[#18181B]/30 border border-white/10 p-4 rounded-[2.5rem] shadow-2xl backdrop-blur-xl w-full">
-              <div className="aspect-square w-full rounded-[2rem] overflow-hidden relative bg-black border border-white/5 flex items-center justify-center">
+            <div className="bg-[#18181B]/30 border border-white/10 p-4 rounded-[2rem] shadow-2xl backdrop-blur-xl w-full">
+              <div className="aspect-square w-full rounded-[1.5rem] overflow-hidden relative bg-black border border-white/5 flex items-center justify-center">
                 <img
                   src={activeImageSource}
-                  alt="Campaign Teaser Showcase"
+                  alt="Campaign Teaser Viewport"
                   className="w-full h-full object-cover animate-fade-in"
                   onError={() => {
                     if (landingPathIndex < landingImageCandidates.length - 1) {
@@ -1098,8 +1168,8 @@ export default function App() {
                   <h4 className="text-white font-bold text-lg tracking-wide leading-tight uppercase tracking-wider font-sans">
                     Studio Reveal Concept
                   </h4>
-                  <p className="text-[11px] text-neutral-455 mt-1 uppercase tracking-widest">
-                    Dubai Clothing Brand Campaign
+                  <p className="text-[11px] text-neutral-455 mt-1 uppercase tracking-widest font-sans">
+                    DUBLIN STUDIO ACTIVE
                   </p>
                 </div>
               </div>
@@ -1145,10 +1215,10 @@ export default function App() {
         style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
       >
         <div className="absolute top-[-10%] left-[-20%] w-[70vw] h-[60vh] bg-amber-500/5 rounded-full blur-[150px] pointer-events-none" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vh] bg-purple-900/10 rounded-full blur-[180px] pointer-events-none" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vh] bg-purple-950/10 rounded-full blur-[180px] pointer-events-none" />
 
         <div className="w-full max-w-md bg-[#161618]/60 border border-white/10 p-12 rounded-[2rem] shadow-2xl space-y-8 backdrop-blur-2xl relative z-10">
-          <div className="text-center space-y-4">
+          <div className="text-center space-y-4 font-sans">
             <span className="font-extralight tracking-[0.4em] text-sm uppercase text-neutral-400">
               {authMode === 'login' ? 'Welcome Back' : 'Create Account'}
             </span>
@@ -1232,7 +1302,7 @@ export default function App() {
               onClick={() =>
                 setAuthMode(authMode === 'login' ? 'register' : 'login')
               }
-              className="text-[10px] text-neutral-400 uppercase tracking-widest hover:text-white transition-colors"
+              className="text-[10px] text-neutral-400 uppercase tracking-widest hover:text-white transition-colors focus:outline-none"
             >
               {authMode === 'login'
                 ? 'No license? Request trial'
@@ -1256,7 +1326,7 @@ export default function App() {
         style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
       >
         <div className="absolute top-[-10%] left-[-20%] w-[70vw] h-[60vh] bg-amber-500/5 rounded-full blur-[150px] pointer-events-none" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vh] bg-purple-900/10 rounded-full blur-[180px] pointer-events-none" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vh] bg-purple-950/10 rounded-full blur-[180px] pointer-events-none" />
 
         <div className="w-full max-w-md bg-[#161618]/60 border border-white/10 p-12 rounded-[2rem] shadow-2xl space-y-8 backdrop-blur-2xl relative z-10">
           <div className="text-center space-y-4">
@@ -1266,7 +1336,7 @@ export default function App() {
             <h2 className="text-3xl font-bold tracking-tight text-white">
               Reset Key
             </h2>
-            <p className="text-xs text-neutral-400 leading-relaxed max-w-xs mx-auto">
+            <p className="text-xs text-neutral-400 leading-relaxed max-w-xs mx-auto font-sans">
               Please declare your registered email address to receive password
               recovery instruction packets.
             </p>
@@ -1274,7 +1344,7 @@ export default function App() {
 
           <form onSubmit={handleForgotPassword} className="space-y-6">
             <div className="space-y-2">
-              <label className="block text-[9px] text-neutral-500 font-bold uppercase tracking-[0.2em] ml-1">
+              <label className="block text-[9px] text-neutral-550 font-bold uppercase tracking-[0.2em] ml-1">
                 Account Email
               </label>
               <div className="relative group">
@@ -1308,7 +1378,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setAuthMode('login')}
-              className="text-[10px] text-neutral-400 hover:text-white transition-all uppercase tracking-widest font-bold"
+              className="text-[10px] text-neutral-400 hover:text-white transition-all uppercase tracking-widest font-bold focus:outline-none"
             >
               Back to Authorization Desk
             </button>
@@ -1321,18 +1391,18 @@ export default function App() {
   }
 
   // =========================================================================
-  // VIEW 3: INTERACTIVE CHECKOUT/PAYWALL WITH SECURE STRIPE HANDSHAKE
+  // VIEW 3: INTERACTIVE CHECKOUT/PAYWALL
   // =========================================================================
   if (authMode === 'paywall') {
     return (
       <div
-        className="min-h-screen bg-black text-neutral-150 flex flex-col justify-between selection:bg-amber-600 selection:text-white relative overflow-hidden"
+        className="min-h-screen bg-black text-neutral-150 flex flex-col justify-between selection:bg-amber-655 selection:text-white relative overflow-hidden"
         style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
       >
         <div className="absolute top-[-20%] left-[10%] w-[60vw] h-[60vh] bg-amber-500/5 rounded-full blur-[160px] pointer-events-none" />
-        <div className="absolute bottom-[-10%] right-[5%] w-[45vw] h-[45vh] bg-neutral-900/40 rounded-full blur-[140px] pointer-events-none" />
+        <div className="absolute bottom-[-10%] right-[5%] w-[45vw] h-[45vh] bg-neutral-950/40 rounded-full blur-[140px] pointer-events-none" />
 
-        <header className="px-6 sm:px-12 py-6 border-b border-neutral-900 flex justify-between items-center bg-black/80 backdrop-blur-md z-10">
+        <header className="px-6 sm:px-12 py-6 border-b border-neutral-900 flex justify-between items-center bg-black/80 backdrop-blur-md z-10 font-sans">
           <div className="flex flex-col items-start">
             <span className="font-extrabold tracking-[0.3em] text-sm uppercase text-white leading-none">
               AuraTeaser
@@ -1351,23 +1421,23 @@ export default function App() {
         </header>
 
         <main className="max-w-5xl mx-auto px-6 py-12 space-y-12 flex-1 flex flex-col justify-center z-10 w-full">
-          <div className="text-center space-y-4 max-w-2xl mx-auto">
+          <div className="text-center space-y-4 max-w-2xl mx-auto font-sans">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/25 text-amber-400 rounded-full text-[8px] font-black uppercase tracking-widest">
               <Sparkles className="w-3 h-3 text-amber-500" />
               <span>Unlimited Production Pipeline</span>
             </div>
-            <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white font-['Playfair_Display',serif] leading-tight">
+            <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight font-sans">
               Unleash Luxury Creative Power
             </h2>
             <p className="text-xs text-neutral-400 leading-relaxed font-light">
               Elevate your campaign pre-launch assets. Upgrade to configure
-              unlimited visual still frames, unlock dynamic metadata
+              unlimited Google Vertex AI still frames, unlock dynamic metadata
               generation, and protect priority designs inside your Private Cloud
               Vault.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 text-left">
-              <div className="p-3.5 bg-neutral-950/50 border border-white/5 rounded-xl flex items-start gap-2.5">
+              <div className="p-3.5 bg-neutral-955/50 border border-white/5 rounded-xl flex items-start gap-2.5">
                 <div className="w-5 h-5 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/25 shrink-0 mt-0.5">
                   <Sparkle className="w-3 h-3 text-amber-400" />
                 </div>
@@ -1375,12 +1445,12 @@ export default function App() {
                   <h4 className="text-[10px] font-extrabold uppercase text-white tracking-wider">
                     Vertex AI Pipeline
                   </h4>
-                  <p className="text-[9px] text-neutral-500 mt-1">
+                  <p className="text-[9px] text-neutral-555 mt-1">
                     Unlimited commercial rendering iterations.
                   </p>
                 </div>
               </div>
-              <div className="p-3.5 bg-neutral-950/50 border border-white/5 rounded-xl flex items-start gap-2.5">
+              <div className="p-3.5 bg-neutral-955/50 border border-white/5 rounded-xl flex items-start gap-2.5">
                 <div className="w-5 h-5 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/25 shrink-0 mt-0.5">
                   <BarChart3 className="w-3 h-3 text-amber-400" />
                 </div>
@@ -1388,12 +1458,12 @@ export default function App() {
                   <h4 className="text-[10px] font-extrabold uppercase text-white tracking-wider">
                     Aesthetic Matrix
                   </h4>
-                  <p className="text-[9px] text-neutral-500 mt-1">
+                  <p className="text-[9px] text-neutral-555 mt-1">
                     Advanced audience index & reach score calculators.
                   </p>
                 </div>
               </div>
-              <div className="p-3.5 bg-neutral-950/50 border border-white/5 rounded-xl flex items-start gap-2.5">
+              <div className="p-3.5 bg-neutral-955/50 border border-white/5 rounded-xl flex items-start gap-2.5">
                 <div className="w-5 h-5 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/25 shrink-0 mt-0.5">
                   <FolderHeart className="w-3 h-3 text-amber-400" />
                 </div>
@@ -1401,7 +1471,7 @@ export default function App() {
                   <h4 className="text-[10px] font-extrabold uppercase text-white tracking-wider">
                     Cloud Preset Vault
                   </h4>
-                  <p className="text-[9px] text-neutral-500 mt-1">
+                  <p className="text-[9px] text-neutral-555 mt-1">
                     Automatic backups of variables & mockup outputs.
                   </p>
                 </div>
@@ -1409,10 +1479,10 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex bg-[#121214] p-1 rounded-xl max-w-[260px] mx-auto border border-neutral-800">
+          <div className="flex bg-[#121214] p-1 rounded-xl max-w-[260px] mx-auto border border-neutral-800 font-sans">
             <button
               onClick={() => setBillingPeriod('monthly')}
-              className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition ${
+              className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition focus:outline-none ${
                 billingPeriod === 'monthly'
                   ? 'bg-neutral-800 text-white shadow-inner'
                   : 'text-neutral-500 hover:text-neutral-300'
@@ -1425,7 +1495,7 @@ export default function App() {
                 setBillingPeriod('annual');
                 triggerNotification('Annual license selected.');
               }}
-              className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition flex items-center justify-center gap-1.5 ${
+              className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition flex items-center justify-center gap-1.5 focus:outline-none ${
                 billingPeriod === 'annual'
                   ? 'bg-amber-600 text-black font-black'
                   : 'text-neutral-500 hover:text-neutral-300'
@@ -1438,7 +1508,7 @@ export default function App() {
             </button>
           </div>
 
-          <div className="text-center space-y-1">
+          <div className="text-center space-y-1 font-sans">
             <div className="text-5xl font-black tracking-tighter text-white flex items-center justify-center">
               <span>{billingPeriod === 'monthly' ? '€24' : '€19'}</span>
               <span className="text-sm text-neutral-500 font-semibold tracking-normal ml-1">
@@ -1457,9 +1527,12 @@ export default function App() {
               <div
                 className="w-72 h-44 rounded-2xl p-5 text-white font-mono flex flex-col justify-between shadow-2xl relative overflow-hidden transition-all duration-700 cursor-pointer"
                 style={{
-                  background: 'linear-gradient(135deg, #1f2937 0%, #111827 100%)',
+                  background:
+                    'linear-gradient(135deg, #1f2937 0%, #111827 100%)',
                   border: '1px solid rgba(255,255,255,0.08)',
-                  transform: isCardFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                  transform: isCardFlipped
+                    ? 'rotateY(180deg)'
+                    : 'rotateY(0deg)',
                 }}
                 onClick={() => setIsCardFlipped(!isCardFlipped)}
               >
@@ -1514,7 +1587,7 @@ export default function App() {
                         {cardCvc || '•••'}
                       </div>
                     </div>
-                    <p className="text-[6px] text-neutral-600 leading-tight">
+                    <p className="text-[6px] text-neutral-600 leading-tight font-sans">
                       This interactive credential engine is built on premium
                       design patterns for validation. Protected under sandbox
                       environment encryption layers.
@@ -1525,7 +1598,7 @@ export default function App() {
             </div>
 
             <div className="lg:col-span-7 space-y-4">
-              <div className="p-6 bg-zinc-900/60 border border-white/5 rounded-2xl text-left space-y-4 shadow-xl backdrop-blur-xl">
+              <div className="p-6 bg-zinc-900/60 border border-white/5 rounded-2xl text-left space-y-4 shadow-xl backdrop-blur-xl font-sans">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
                     <ShieldCheck className="w-4 h-4" />
@@ -1534,7 +1607,7 @@ export default function App() {
                     <h4 className="font-extrabold text-xs uppercase tracking-wider text-neutral-200">
                       Stripe Protected Payment
                     </h4>
-                    <p className="text-[9px] text-neutral-500 font-light">
+                    <p className="text-[9px] text-neutral-550 font-light font-sans">
                       {billingPeriod === 'monthly'
                         ? 'Standard monthly'
                         : 'Discounted annual'}{' '}
@@ -1543,21 +1616,21 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="space-y-2 border-t border-zinc-800 pt-4">
-                  <div className="flex justify-between text-[11px] text-neutral-455">
+                <div className="space-y-2 border-t border-zinc-800 pt-4 font-sans">
+                  <div className="flex justify-between text-[11px] text-neutral-455 font-semibold">
                     <span>AuraTeaser Pro Suite License</span>
                     <span className="text-white font-mono">
                       {billingPeriod === 'monthly' ? '€24.00' : '€228.00'}
                     </span>
                   </div>
-                  <div className="flex justify-between text-[11px] text-neutral-455">
+                  <div className="flex justify-between text-[11px] text-neutral-455 font-semibold">
                     <span>Recurring Billing Quota</span>
                     <span className="text-white">
                       {billingPeriod === 'monthly' ? 'Monthly' : 'Annually'}
                     </span>
                   </div>
-                  <div className="flex justify-between text-[11px] text-neutral-455 font-bold border-t border-dashed border-neutral-800 pt-2">
-                    <span className="text-neutral-200">Total Charge Due</span>
+                  <div className="flex justify-between text-[11px] text-neutral-455 font-bold border-t border-dashed border-neutral-800 pt-2 font-semibold">
+                    <span className="text-neutral-200 font-bold">Total Charge Due</span>
                     <span className="text-amber-500 font-mono">
                       {billingPeriod === 'monthly' ? '€24.00' : '€228.00'}
                     </span>
@@ -1567,7 +1640,7 @@ export default function App() {
                 <div className="space-y-3 pt-2">
                   <button
                     onClick={handleStripeCheckoutRedirect}
-                    className="w-full py-4 bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-450 hover:to-rose-450 text-black font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 uppercase tracking-widest active:scale-[0.98]"
+                    className="w-full py-4 bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-450 hover:to-rose-450 text-black font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 uppercase tracking-widest active:scale-[0.99] focus:outline-none"
                   >
                     <CreditCard className="w-4 h-4 text-black" />
                     <span>Pay Securely with Stripe</span>
@@ -1577,10 +1650,12 @@ export default function App() {
                     onClick={() => {
                       updateSubscriptionInDb(true).then(() => {
                         setAuthMode('studio');
-                        triggerNotification('Mock sandbox subscription validated!');
+                        triggerNotification(
+                          'Mock sandbox subscription validated!'
+                        );
                       });
                     }}
-                    className="w-full py-2.5 bg-neutral-800 hover:bg-neutral-755 text-neutral-400 hover:text-white rounded-xl text-[10px] font-bold border border-white/5 transition uppercase tracking-wider focus:outline-none"
+                    className="w-full py-2.5 bg-neutral-800 hover:bg-neutral-755 text-neutral-455 hover:text-white rounded-xl text-[10px] font-bold border border-white/5 transition uppercase tracking-wider focus:outline-none"
                   >
                     Bypass via Developer Sandbox
                   </button>
@@ -1589,7 +1664,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="text-center">
+          <div className="text-center font-sans">
             <button
               onClick={handleRestorePurchases}
               className="text-xs text-indigo-450 hover:text-indigo-400 hover:underline font-bold transition-all uppercase tracking-widest text-[9px] focus:outline-none"
@@ -1625,22 +1700,22 @@ export default function App() {
             <h2 className="text-2xl font-black tracking-tight text-white uppercase tracking-[0.05em]">
               Session Conflict
             </h2>
-            <p className="text-[10px] text-neutral-500 uppercase tracking-widest">
+            <p className="text-[10px] text-neutral-550 uppercase tracking-widest">
               Multi-User Account Sharing Detected
             </p>
           </div>
-          <p className="text-xs text-neutral-400 leading-relaxed">
+          <p className="text-xs text-neutral-400 leading-relaxed font-sans">
             Your AuraTeaser Pro Suite license is currently actively compiling on
             another computer, terminal, or browser tab.
           </p>
-          <div className="p-4 bg-black/40 rounded-2xl border border-white/5 space-y-1.5 text-left text-[11px] text-neutral-400">
+          <div className="p-4 bg-black/40 rounded-2xl border border-white/5 space-y-1.5 text-left text-[11px] text-neutral-455 font-sans">
             <p className="text-neutral-500 text-[9px] uppercase tracking-wider font-bold">
               Active Station details:
             </p>
             <p>
               &bull; User:{' '}
               <span className="font-semibold text-neutral-200">
-                {user?.email || 'alen@test.com'}
+                {user?.email || 'studio-operator@aurateaser.design'}
               </span>
             </p>
             <p>
@@ -1650,10 +1725,10 @@ export default function App() {
               </span>
             </p>
           </div>
-          <div className="space-y-3 pt-4">
+          <div className="space-y-3 pt-4 font-sans">
             <button
               onClick={claimActiveSession}
-              className="w-full py-4 bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-450 hover:to-rose-450 text-black font-bold text-xs rounded-xl shadow-lg uppercase tracking-wider transition-all duration-350"
+              className="w-full py-4 bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-450 hover:to-rose-450 text-black font-bold text-xs rounded-xl shadow-lg uppercase tracking-wider transition-all duration-350 focus:outline-none"
             >
               Terminate other tab & Re-claim here
             </button>
@@ -1664,7 +1739,7 @@ export default function App() {
                   setAuthMode('landing');
                 })
               }
-              className="w-full py-3.5 bg-neutral-900 hover:bg-[#121214] text-neutral-400 hover:text-white rounded-xl text-xs font-semibold border border-white/5 transition-all"
+              className="w-full py-3.5 bg-neutral-900 hover:bg-[#121214] text-neutral-455 hover:text-white rounded-xl text-xs font-semibold border border-white/5 transition-all focus:outline-none"
             >
               Sign Out Securely
             </button>
@@ -1679,16 +1754,20 @@ export default function App() {
   // =========================================================================
   return (
     <div
-      className="min-h-screen bg-black text-neutral-100 font-sans flex flex-col selection:bg-amber-600 selection:text-black pb-12"
+      className="min-h-screen bg-black text-neutral-100 font-sans flex flex-col selection:bg-amber-650 selection:text-black pb-12"
       style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
     >
+      {/* Toast Notification */}
       {notification && (
         <div className="fixed bottom-5 right-5 z-50 bg-neutral-900 border border-neutral-800 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 text-xs animate-in fade-in slide-in-from-bottom-5 duration-300">
           <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-          <span className="font-semibold text-neutral-200">{notification}</span>
+          <span className="font-semibold text-neutral-200 font-sans">
+            {notification}
+          </span>
         </div>
       )}
 
+      {/* Premium Header */}
       <header className="border-b border-neutral-900 bg-[#0A0A0B]/85 backdrop-blur-md sticky top-0 z-40 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div
@@ -1699,7 +1778,7 @@ export default function App() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] uppercase tracking-widest text-neutral-400 font-bold">
+              <span className="text-[10px] uppercase tracking-widest text-neutral-450 font-bold">
                 AuraTeaser Pro Suite v4
               </span>
               <span className="px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
@@ -1712,7 +1791,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 font-sans">
           <div className="flex items-center gap-1.5 bg-neutral-900 border border-neutral-800 px-3 py-1.5 rounded-xl text-xs text-neutral-400">
             <User className="w-3.5 h-3.5 text-amber-500" />
             <span>
@@ -1733,8 +1812,9 @@ export default function App() {
         </div>
       </header>
 
+      {/* Free Trial Banner Indicator */}
       {!isSubscribed && (
-        <div className="bg-gradient-to-r from-amber-600/10 to-rose-600/10 border-b border-amber-500/20 px-6 py-2.5 flex items-center justify-between text-xs text-amber-450">
+        <div className="bg-gradient-to-r from-amber-600/10 to-rose-600/10 border-b border-amber-500/20 px-6 py-2.5 flex items-center justify-between text-xs text-amber-455 font-sans">
           <span className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 animate-pulse" />
             <span>
@@ -1751,8 +1831,11 @@ export default function App() {
         </div>
       )}
 
+      {/* Main Grid Workspace */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left Side Controls (7 Columns) */}
         <section className="lg:col-span-7 flex flex-col gap-6">
+          {/* Autonomous Prompt Expansion Desk */}
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 space-y-4 shadow-xl">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-800 pb-3 gap-2">
               <div className="flex items-center gap-2">
@@ -1761,13 +1844,13 @@ export default function App() {
                   Autonomous AI Expansion Core
                 </h2>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 font-sans">
                 <button
                   onClick={() => setIsAutonomousPrompt(!isAutonomousPrompt)}
-                  className={`px-3 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                  className={`px-3 py-1 rounded-lg text-[10px] font-bold border transition-all focus:outline-none ${
                     isAutonomousPrompt
                       ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-                      : 'bg-[#121214] border-neutral-800 text-neutral-400'
+                      : 'bg-[#121214] border-neutral-800 text-neutral-450'
                   }`}
                 >
                   {isAutonomousPrompt
@@ -1778,7 +1861,7 @@ export default function App() {
                   <button
                     onClick={handleGeminiExpandPrompt}
                     disabled={isExpandingPrompt}
-                    className="px-2.5 py-1 bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-450 hover:to-rose-450 text-black rounded-lg text-[10px] font-bold flex items-center gap-1 transition focus:outline-none"
+                    className="px-2.5 py-1 bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-450 hover:to-rose-450 text-black rounded-lg text-[10px] font-bold flex items-center gap-1 transition focus:outline-none disabled:opacity-50"
                   >
                     {isExpandingPrompt ? (
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -1791,7 +1874,7 @@ export default function App() {
               </div>
             </div>
 
-            <div>
+            <div className="font-sans">
               <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">
                 User Base Concept / Core Idea
               </label>
@@ -1806,7 +1889,7 @@ export default function App() {
 
             {isAutonomousPrompt && (
               <div className="bg-[#121214] border border-neutral-800 rounded-xl p-3.5 space-y-1.5">
-                <span className="text-[9px] font-bold text-neutral-550 uppercase tracking-widest block">
+                <span className="text-[9px] font-bold text-neutral-550 uppercase tracking-widest block font-sans">
                   Expanded Studio Prompt Target Syntax
                 </span>
                 <p className="text-[10px] text-neutral-400 font-mono leading-relaxed select-all font-semibold italic">
@@ -1816,6 +1899,7 @@ export default function App() {
             )}
           </div>
 
+          {/* Camera Angles & Seed Constraints */}
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
               <div className="flex items-center gap-2">
@@ -1838,13 +1922,13 @@ export default function App() {
                 ) : (
                   <Unlock className="w-3.5 h-3.5" />
                 )}
-                <span className="font-semibold">
+                <span className="font-semibold font-sans">
                   {seedLock ? 'Consistency Locked' : 'Free Roam Seed'}
                 </span>
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-sans">
               <div>
                 <label className="block text-[10px] text-neutral-400 font-semibold uppercase tracking-wider mb-1.5">
                   Production Angle
@@ -1868,7 +1952,7 @@ export default function App() {
                 <select
                   value={lightingStyle}
                   onChange={(e) => setLightingStyle(e.target.value)}
-                  className="w-full bg-black border border-neutral-800 rounded-xl p-2.5 text-xs text-neutral-300 focus:outline-none font-sans"
+                  className="w-full bg-black border border-neutral-800 rounded-xl p-2.5 text-xs text-neutral-300 focus:outline-none"
                 >
                   <option>Cinematic Sidelight</option>
                   <option>Golden Flare Atmospheric</option>
@@ -1894,7 +1978,7 @@ export default function App() {
                     className="p-2.5 bg-black border border-neutral-700 rounded-xl transition hover:border-neutral-500 focus:outline-none"
                     disabled={seedLock}
                   >
-                    <Dices className="w-3.5 h-3.5 text-neutral-455" />
+                    <Dices className="w-3.5 h-3.5 text-neutral-400" />
                   </button>
                 </div>
               </div>
@@ -1903,7 +1987,7 @@ export default function App() {
             <button
               onClick={generateTeaserImage}
               disabled={isGenerating}
-              className="w-full py-4 bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-450 hover:to-rose-450 text-black rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.99] uppercase tracking-wider focus:outline-none"
+              className="w-full py-4 bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-450 hover:to-rose-450 text-black rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.99] uppercase tracking-wider focus:outline-none disabled:opacity-40"
             >
               {isGenerating ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
@@ -1914,20 +1998,21 @@ export default function App() {
             </button>
           </div>
 
-          <div className="bg-[#0C0C0E] border border-neutral-900 rounded-2xl p-4 space-y-2.5">
+          {/* Active Process Logging Desk */}
+          <div className="bg-[#0C0C0E] border border-neutral-900 rounded-2xl p-4 space-y-2.5 font-sans">
             <div className="flex items-center justify-between border-b border-neutral-900 pb-2">
               <div className="flex items-center gap-2 text-neutral-400">
                 <Terminal className="w-3.5 h-3.5 text-neutral-500" />
-                <span className="text-[10px] font-bold uppercase tracking-widest">
+                <span className="text-[10px] font-bold uppercase tracking-widest font-sans">
                   Active Output Console
                 </span>
               </div>
-              <span className="text-[9px] text-neutral-500 font-mono font-bold">
+              <span className="text-[9px] text-neutral-550 font-mono font-bold">
                 Process stream
               </span>
             </div>
 
-            <div className="font-mono text-[11px] space-y-1 h-24 overflow-y-auto leading-relaxed custom-scrollbar text-neutral-400 font-semibold select-text">
+            <div className="font-mono text-[11px] space-y-1 h-24 overflow-y-auto leading-relaxed custom-scrollbar text-neutral-400 font-semibold select-text font-sans">
               {generationLogs.length === 0 ? (
                 <div className="text-neutral-600 italic text-[10px]">
                   Console idle. Awaiting configuration compilation...
@@ -1951,8 +2036,9 @@ export default function App() {
             </div>
           </div>
 
+          {/* Overlays & Copywriting Controls */}
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 space-y-4 shadow-xl">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-sans">
               <div>
                 <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">
                   Launch Location
@@ -1991,13 +2077,13 @@ export default function App() {
               </div>
             </div>
 
-            <div className="p-4 bg-[#0C0C0E] border border-neutral-800 rounded-xl space-y-3">
+            <div className="p-4 bg-[#0C0C0E] border border-neutral-800 rounded-xl space-y-3 font-sans">
               <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-300 block">
                 Interactive Badge Positioning Calibration
               </span>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[9px] text-neutral-500 mb-1 font-sans">
+                  <label className="block text-[9px] text-neutral-550 mb-1">
                     X Offset Padding: {stickerX}%
                   </label>
                   <input
@@ -2005,12 +2091,12 @@ export default function App() {
                     min="2"
                     max="80"
                     value={stickerX}
-                    onChange={(e) => setStickerX(e.target.value)}
+                    onChange={(e) => setStickerX(Number(e.target.value))}
                     className="w-full accent-amber-500 h-1 bg-neutral-800 rounded-lg cursor-pointer"
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] text-neutral-500 mb-1 font-sans">
+                  <label className="block text-[9px] text-neutral-555 mb-1">
                     Y Offset Padding: {stickerY}%
                   </label>
                   <input
@@ -2018,7 +2104,7 @@ export default function App() {
                     min="2"
                     max="80"
                     value={stickerY}
-                    onChange={(e) => setStickerY(e.target.value)}
+                    onChange={(e) => setStickerY(Number(e.target.value))}
                     className="w-full accent-amber-500 h-1 bg-neutral-800 rounded-lg cursor-pointer"
                   />
                 </div>
@@ -2034,8 +2120,8 @@ export default function App() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-1.5">
+            <div className="font-sans">
+              <label className="block text-[10px] text-neutral-550 font-bold uppercase tracking-wider mb-1.5">
                 Social Caption Template Blueprint
               </label>
               <textarea
@@ -2046,10 +2132,10 @@ export default function App() {
               />
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 font-sans">
               <button
                 onClick={handleSaveToVault}
-                className="flex-1 py-3 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition focus:outline-none font-sans"
+                className="flex-1 py-3 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition focus:outline-none"
               >
                 <FolderHeart className="w-4 h-4 text-amber-500" />
                 <span>Save to Cloud Vault</span>
@@ -2057,17 +2143,18 @@ export default function App() {
             </div>
           </div>
 
+          {/* Cloud history drawer */}
           <div className="bg-neutral-900 border border-[#27272A] rounded-2xl p-5 space-y-4">
             <span className="text-xs font-bold text-neutral-300 uppercase tracking-widest flex items-center gap-2 font-sans">
               <FolderHeart className="w-4 h-4 text-amber-500" />
               <span>AuraTeaser History Vault ({savedCreations.length})</span>
             </span>
             {savedCreations.length === 0 ? (
-              <p className="text-[11px] text-neutral-500 italic font-sans">
+              <p className="text-[11px] text-neutral-555 italic font-sans">
                 No configurations currently stored in cloud memory.
               </p>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[220px] overflow-y-auto custom-scrollbar">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[220px] overflow-y-auto custom-scrollbar font-sans">
                 {savedCreations.map((item) => (
                   <div
                     key={item.id}
@@ -2088,18 +2175,18 @@ export default function App() {
                         {item.userConcept}
                       </span>
                     </div>
-                    <p className="text-[9px] text-neutral-455 line-clamp-2 italic font-sans">
+                    <p className="text-[9px] text-neutral-555 line-clamp-2 italic font-sans">
                       "{item.caption}"
                     </p>
                     <div className="flex justify-between items-center pt-1.5 border-t border-neutral-800">
-                      <span className="text-[8px] text-neutral-650 font-mono">
+                      <span className="text-[8px] text-neutral-655 font-mono">
                         {new Date(item.savedAt).toLocaleDateString()}
                       </span>
                       <button
                         onClick={() => handleRestoreFromVault(item)}
                         className="text-[9px] text-indigo-400 hover:underline font-bold flex items-center gap-1 focus:outline-none"
                       >
-                        <Undo className="w-3.5 h-3.5" />
+                        <Undo className="w-3 h-3" />
                         <span>Restore Variables</span>
                       </button>
                     </div>
@@ -2110,15 +2197,17 @@ export default function App() {
           </div>
         </section>
 
+        {/* Right Hand Live Viewport */}
         <section className="lg:col-span-5 flex flex-col gap-6">
+          {/* Performance scorecard */}
           <div className="bg-neutral-900 border border-[#27272A] rounded-2xl p-5 space-y-4 shadow-xl">
             <span className="text-xs font-bold text-neutral-300 uppercase tracking-widest flex items-center gap-2 font-sans">
               <BarChart3 className="w-4 h-4 text-amber-500 animate-pulse" />
               <span>Aura Performance Index</span>
             </span>
-            <div className="grid grid-cols-3 gap-2.5 text-center">
+            <div className="grid grid-cols-3 gap-2.5 text-center font-sans">
               <div className="p-2.5 bg-[#0C0C0E] border border-neutral-800 rounded-xl">
-                <span className="text-[8px] text-neutral-500 block uppercase font-bold font-sans">
+                <span className="text-[8px] text-neutral-500 block uppercase font-bold">
                   Aesthetic Score
                 </span>
                 <span className="text-lg font-black text-amber-500">
@@ -2126,7 +2215,7 @@ export default function App() {
                 </span>
               </div>
               <div className="p-2.5 bg-neutral-950 border border-neutral-800 rounded-xl">
-                <span className="text-[8px] text-neutral-500 block uppercase font-bold font-sans">
+                <span className="text-[8px] text-neutral-500 block uppercase font-bold">
                   Virality Rate
                 </span>
                 <span className="text-lg font-black text-rose-500">
@@ -2134,7 +2223,7 @@ export default function App() {
                 </span>
               </div>
               <div className="p-2.5 bg-neutral-950 border border-neutral-800 rounded-xl">
-                <span className="text-[8px] text-neutral-500 block uppercase font-bold font-sans">
+                <span className="text-[8px] text-neutral-500 block uppercase font-bold">
                   Reach Score
                 </span>
                 <span className="text-lg font-black text-emerald-400">
@@ -2144,8 +2233,8 @@ export default function App() {
             </div>
           </div>
 
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 flex flex-col h-full space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 flex flex-col h-full space-y-4 font-sans">
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-800 font-sans">
               <div className="flex items-center gap-2">
                 <Eye className="w-4 h-4 text-amber-500" />
                 <h2 className="font-bold text-xs uppercase tracking-wider">
@@ -2153,18 +2242,16 @@ export default function App() {
                 </h2>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 font-sans">
                 <select
                   value={activePlatform}
                   onChange={(e) => {
                     setActivePlatform(e.target.value);
-                    if (e.target.value === 'tiktok') setAspectRatio('story');
-                    else if (e.target.value === 'pinterest')
-                      setAspectRatio('landscape');
-                    else setAspectRatio('square');
-                    triggerNotification(`Simulating platform layouts: ${e.target.value}`);
+                    triggerNotification(
+                      `Simulating platform layouts: ${e.target.value}`
+                    );
                   }}
-                  className="bg-[#0C0C0E] border border-neutral-800 text-[10px] rounded-lg px-2 py-1.5 font-bold text-neutral-300 focus:outline-none font-sans"
+                  className="bg-[#0C0C0E] border border-neutral-800 text-[10px] rounded-lg px-2 py-1.5 font-bold text-neutral-300 focus:outline-none"
                 >
                   <option value="instagram">Instagram Grid</option>
                   <option value="tiktok">TikTok / Reels Feed</option>
@@ -2173,10 +2260,10 @@ export default function App() {
               </div>
             </div>
 
-            <div className="flex bg-[#0C0C0E] p-1 rounded-xl border border-neutral-800">
+            <div className="flex bg-[#0C0C0E] p-1 rounded-xl border border-neutral-800 font-sans">
               <button
                 onClick={() => setPreviewMode('mockup')}
-                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 focus:outline-none font-sans ${
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 focus:outline-none ${
                   previewMode === 'mockup'
                     ? 'bg-neutral-800 text-white shadow-md'
                     : 'text-neutral-500 hover:text-neutral-300'
@@ -2191,7 +2278,7 @@ export default function App() {
                     ? setPreviewMode('ai')
                     : triggerNotification('No AI Render compiled yet.')
                 }
-                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 relative focus:outline-none font-sans ${
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 relative focus:outline-none ${
                   previewMode === 'ai'
                     ? 'bg-amber-600 text-black shadow-md'
                     : 'text-neutral-500 hover:text-neutral-300'
@@ -2203,7 +2290,7 @@ export default function App() {
             </div>
 
             {isOutOfSync && previewMode === 'ai' && (
-              <div className="bg-amber-500/10 border border-amber-500/25 p-2.5 rounded-xl flex items-center justify-between text-[11px] text-amber-400 animate-pulse">
+              <div className="bg-amber-500/10 border border-amber-500/25 p-2.5 rounded-xl flex items-center justify-between text-[11px] text-amber-400 animate-pulse font-sans">
                 <span>⚠️ Workspace parameters updated. AI is out of sync.</span>
                 <button
                   onClick={generateTeaserImage}
@@ -2214,16 +2301,18 @@ export default function App() {
               </div>
             )}
 
-            <div className="flex-1 flex items-center justify-center bg-[#0C0C0E]/60 rounded-xl border border-neutral-900 p-4 relative min-h-[340px]">
+            <div className="flex-1 flex items-center justify-center bg-[#0C0C0E]/60 rounded-xl border border-neutral-900 p-4 relative min-h-[340px] font-sans">
               <div className="w-full max-w-[300px] bg-black border border-neutral-900 rounded-2xl overflow-hidden shadow-2xl relative">
-                <div className="absolute top-3 left-3 z-20 bg-black/70 backdrop-blur-md border border-neutral-800 p-1.5 rounded-lg text-white flex items-center gap-1">
+                <div className="absolute top-3 left-3 z-20 bg-black/70 backdrop-blur-md border border-neutral-800 p-1.5 rounded-lg text-white flex items-center gap-1 font-sans">
                   <ImageIcon className="w-3.5 h-3.5 text-amber-500" />
-                  <span className="text-[8px] font-mono tracking-wider font-bold">
+                  <span className="text-[8px] font-mono tracking-wider font-bold font-sans">
                     STILL PREVIEW
                   </span>
                 </div>
 
-                <div className={`relative w-full overflow-hidden bg-neutral-900 ${getPlatformClass()}`}>
+                <div
+                  className={`relative w-full overflow-hidden bg-neutral-900 ${getPlatformClass()}`}
+                >
                   {activeImageSource ? (
                     <img
                       src={activeImageSource}
@@ -2231,7 +2320,7 @@ export default function App() {
                       className="w-full h-full object-cover select-none"
                     />
                   ) : (
-                    <div className="absolute inset-0 flex items-center justify-center flex-col text-neutral-600 gap-2">
+                    <div className="absolute inset-0 flex items-center justify-center flex-col text-neutral-600 gap-2 font-sans">
                       <ImageIcon className="w-10 h-10 stroke-1" />
                       <span className="text-[11px] font-bold text-center px-4">
                         Ready to compile commercial design...
@@ -2241,7 +2330,7 @@ export default function App() {
 
                   {showSticker && (
                     <div
-                      className="absolute transition-all duration-350 z-30"
+                      className="absolute transition-all duration-300 z-30 font-sans"
                       style={{
                         top: `${stickerY}%`,
                         left: `${stickerX}%`,
@@ -2252,14 +2341,14 @@ export default function App() {
                         style={{ backgroundColor: brandColor }}
                       >
                         <Sparkle className="w-2.5 h-2.5 animate-spin" />
-                        <span>{stickerText || 'MAE EYEWEAR'}</span>
+                        <span>{stickerText || 'STUDIO'}</span>
                       </div>
                     </div>
                   )}
                 </div>
 
                 {activePlatform === 'instagram' && (
-                  <div className="p-3 border-t border-neutral-900 bg-neutral-950">
+                  <div className="p-3 border-t border-neutral-900 bg-neutral-950 font-sans">
                     <p className="text-[10px] text-neutral-300 font-sans leading-relaxed">
                       <span className="font-bold text-white mr-1.5">
                         brandstudio
@@ -2269,7 +2358,7 @@ export default function App() {
                   </div>
                 )}
                 {activePlatform === 'tiktok' && (
-                  <div className="p-3 bg-gradient-to-t from-black to-transparent absolute bottom-0 left-0 right-0 z-20 space-y-1 bg-neutral-950/60">
+                  <div className="p-3 bg-gradient-to-t from-black to-transparent absolute bottom-0 left-0 right-0 z-20 space-y-1 bg-neutral-950/60 font-sans">
                     <div className="text-white text-[10px] font-bold font-sans">
                       @brandstudio
                     </div>
@@ -2281,7 +2370,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-2">
+            <div className="grid grid-cols-2 gap-3 pt-2 font-sans">
               <button
                 onClick={() => {
                   const target = previewMode === 'ai' ? aiImageUrl : imageUrl;
@@ -2292,14 +2381,14 @@ export default function App() {
                   link.click();
                   triggerNotification('Media file downloaded.');
                 }}
-                className="py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition uppercase tracking-wider focus:outline-none font-sans"
+                className="py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition uppercase tracking-wider focus:outline-none"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Export Master File</span>
               </button>
               <button
                 onClick={handleCopyCaption}
-                className="py-3 bg-indigo-600/10 text-indigo-400 border border-indigo-500/20 font-bold text-xs rounded-xl transition uppercase tracking-wider focus:outline-none font-sans"
+                className="py-3 bg-indigo-600/10 text-indigo-400 border border-indigo-500/20 font-bold text-xs rounded-xl transition uppercase tracking-wider focus:outline-none"
               >
                 Copy Caption
               </button>
@@ -2308,16 +2397,17 @@ export default function App() {
         </section>
       </main>
 
+      {/* Unified clean footer and info desk */}
       <footer className="border-t border-neutral-900 bg-black py-12 px-6 mt-12 text-center text-zinc-500 text-xs font-sans">
         <div className="max-w-xl mx-auto space-y-4">
-          <p className="font-semibold uppercase tracking-widest text-[10px] text-zinc-400">
+          <p className="font-semibold uppercase tracking-widest text-[10px] text-zinc-400 font-sans">
             AuraTeaser Creative Suite v4
           </p>
           <p className="leading-relaxed font-light">
             Crafted for rapid brand and merchandise teaser creation. Integrates
             high-performance Google Generative AI frameworks.
           </p>
-          <div className="flex justify-center space-x-6 pt-2 font-bold uppercase tracking-widest text-[9px] text-zinc-400">
+          <div className="flex justify-center space-x-6 pt-2 font-bold uppercase tracking-widest text-[9px] text-zinc-400 font-sans">
             <button
               className="hover:text-white transition-all focus:outline-none"
               onClick={() => setLegalOpen(true)}
