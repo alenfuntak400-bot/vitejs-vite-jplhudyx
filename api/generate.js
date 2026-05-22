@@ -6,32 +6,28 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Notice we now accept a "type" parameter (either 'image' or 'text')
   const { prompt, type } = req.body;
-  const apiKey = process.env.VITE_GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
-    return res.status(500).json({ error: 'Server Error: API key is not configured in Vercel settings or .env file' });
+    return res.status(500).json({ error: 'Server Error: API key is not configured in Vercel settings' });
   }
 
   try {
-    let googleUrl = '';
-    let payload = {};
+    // We use a unified endpoint pattern for Gemini models
+    const model = type === 'image' ? 'gemini-2.5-flash-image' : 'gemini-2.5-flash';
+    const googleUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-    // SMART ROUTING: Choose the right AI model based on what the frontend wants
-    if (type === 'image') {
-      googleUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`;
-      payload = {
-        instances: { prompt: prompt },
-        parameters: { sampleCount: 1 }
-      };
-    } else {
-      // Default to text expansion
-      googleUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-      payload = {
-        contents: [{ parts: [{ text: prompt }] }]
-      };
-    }
+    // Prepare the payload according to the generateContent standard
+    const payload = {
+      contents: [{ parts: [{ text: prompt }] }],
+      // If it's an image request, we specifically ask the model to return image modality
+      ...(type === 'image' && {
+        generationConfig: {
+          responseModalities: ['IMAGE'],
+        },
+      }),
+    };
 
     const response = await fetch(googleUrl, {
       method: 'POST',
@@ -41,7 +37,6 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
-    // Pass Google's error back to the frontend cleanly if one occurs
     if (!response.ok) {
       return res.status(response.status).json({ error: data.error?.message || 'Google API Error' });
     }
