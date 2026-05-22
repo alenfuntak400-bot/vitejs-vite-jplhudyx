@@ -811,7 +811,7 @@ export default function App() {
 
     try {
       // Directs requests securely to your Vercel backend
-      const response = await fetch(BACKEND_URL, {
+      const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -819,6 +819,9 @@ export default function App() {
           prompt: computedSystemPrompt,
         }),
       });
+      
+      const data = await response.json();
+      
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
