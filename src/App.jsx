@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
+import ReactDOM from 'react-dom/client';
 import {
   Sparkles,
   Image as ImageIcon,
