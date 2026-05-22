@@ -55,7 +55,7 @@ import {
 // 1. YOUR LIVE COPIED FIREBASE CONFIGURATION
 // =========================================================================
 const firebaseConfig = {
-  apiKey: 'AIzaSyDJgriw4CiNQ8DhX4wTDP-NgDs0-KkoYdI',
+  apiKey: 'VITE_GEMINI_API_KEY',
   authDomain: 'aurateaser-brand-studio.firebaseapp.com',
   projectId: 'aurateaser-brand-studio',
   storageBucket: 'aurateaser-brand-studio.firebasestorage.app',
@@ -66,7 +66,7 @@ const firebaseConfig = {
 // =========================================================================
 // 2. YOUR REAL LIVE GEMINI API KEY & STRIPE PRODUCTION POOL LINK
 // =========================================================================
-const apiKey = 'AIzaSyDJgriw4CiNQ8DhX4wTDP-NgDs0-KkoYdI';
+const apiKey = 'VITE_GEMINI_API_KEY';
 const STRIPE_LINK_MONTHLY =
   'https://buy.stripe.com/test_3cI9AU8OteHf8MZd272kw01';
 const STRIPE_LINK_YEARLY =
