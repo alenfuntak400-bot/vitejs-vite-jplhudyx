@@ -820,18 +820,19 @@ export default function App() {
         }),
       });
       
+      // First, get the JSON response
       const data = await response.json();
-      
 
+      // Now check if it's an error
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        // Since we already parsed 'data', use that for the error message
         const rawErrorMessage =
-          errorData?.error ||
+          data?.error ||
           `HTTP Error ${response.status}: ${response.statusText}`;
         throw new Error(rawErrorMessage);
       }
 
-      const data = await response.json();
+      // Now use the data safely
       if (data.predictions?.[0]?.bytesBase64Encoded) {
         setAiImageUrl(
           `data:image/png;base64,${data.predictions[0].bytesBase64Encoded}`
@@ -854,7 +855,6 @@ export default function App() {
       setIsGenerating(false);
     }
   };
-
   // --- GEMINI PROMPT OPTIMIZER (ROUTED SECURELY TO YOUR VERCEL SERVER BRIDGE) ---
   const handleGeminiExpandPrompt = async () => {
     setIsExpandingPrompt(true);
